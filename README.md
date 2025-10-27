@@ -115,5 +115,5 @@ as long as you **include attribution** to the original author.
 
 ## ✨ Author
 
-**AudioTTo** — developed by *[Manumarzo]*
+**AudioTTo** — developed by *Manumarzo*
 
