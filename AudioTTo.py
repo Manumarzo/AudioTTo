@@ -21,7 +21,7 @@ from typing import List
 import fitz  # PyMuPDF per i PDF
 import PIL.Image
 
-warnings.filterwarnings("ignore", category=UserWarning, module='ctranslate2')
+warnings.filterwarnings("ignore", category=UserWarning, module='ctranslate2') #provare a mettere solo ignore
 
 # ---------------- CONFIG ----------------
 MODEL_SIZE = "small"
@@ -29,7 +29,7 @@ COMPUTE_TYPE = "int8"
 LANGUAGE = None
 N_THREADS = 4
 CHUNK_LENGTH_MS_LOCAL = 10 * 60 * 1000
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") 
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 AudioSegment.converter = ffmpeg.get_ffmpeg_exe()
 model_worker = None
 
@@ -138,25 +138,20 @@ def genera_documento_latex(testo: str, titolo: str, slides: List[PIL.Image.Image
         # Prompt per TRASCRIZIONE + SLIDE (due fonti)
         prompt_iniziale = f"""
         Sei un assistente esperto nella creazione di documenti LaTeX. Il tuo compito è creare appunti dettagliati e ben strutturati di una lezione.
-        Hai a disposizione DUE FONTI: una TRASCRIZIONE testuale e una serie di IMMAGINI delle slide della lezione, 
-        usale per integrarle con la trascrizione e creare degli appunti completi.
+        Hai a disposizione DUE FONTI: una TRASCRIZIONE testuale e una serie di IMMAGINI delle slide. Integra entrambe per creare un documento LaTeX completo.
 
         REGOLE FONDAMENTALI:
-        - La tua risposta DEVE iniziare immediatamente con `\\documentclass{{article}}` e finire esattamente con `\\end{{document}}`.
-        - NON includere frasi introduttive, spiegazioni, commenti o blocchi di codice Markdown. La tua risposta deve essere solo e unicamente codice LaTeX valido.
-        - Usa le IMMAGINI delle slide come guida principale per la STRUTTURA del documento (titolo, sezioni, sottosezioni).
-        - Usa la TRASCRIZIONE per riempire le sezioni create con spiegazioni dettagliate, esempi e approfondimenti.
-        - Usa il font Helvetica. Includi `\\usepackage{{helvet}}` e `\\renewcommand{{\\familydefault}}{{\\sfdefault}}` nel preambolo.
-        - Usa pacchetti standard come `geometry`, `amsmath`, `graphicx`, e `inputenc` con `utf8`.
-        - Se sono presenti formule scrivile correttamente.
-        - Utilizza elenchi puntati (`itemize`) e numerati (`enumerate`) per organizzare le informazioni in modo chiaro.
-        - Correggi eventuali errori grammaticali e di battitura presenti nella trascrizione.
-        - Riformula le frasi per renderle più chiare e accademiche, mantenendo il significato originale.
-        - Includi una sezione finale di riassunto chiamata `\\section*{{Riassunto Finale}}`.
+        - La tua risposta DEVE iniziare immediatamente con `\\documentclass{{article}}` e finire con `\\end{{document}}`. NON includere spiegazioni o codice markdown.
+        - Usa il font Helvetica per tutto il documento. Per farlo, includi `\\usepackage{{helvet}}` e `\\renewcommand{{\\familydefault}}{{\\sfdefault}}` nel preambolo.
+        - Usa le IMMAGINI delle slide come guida per la STRUTTURA del documento (sezioni, sottosezioni).
+        - Usa la TRASCRIZIONE e il contenuto delle IMMAGINI per riempire le sezioni con spiegazioni dettagliate, esempi e approfondimenti.
+        - Riformula le frasi per renderle più chiare e accademiche.
+        - Usa pacchetti standard come `geometry`, `amsmath`, `graphicx`, `helvet` e `inputenc` con `utf8`.
+        - Includi una sezione finale di riassunto.
 
-        Usa questo titolo per il documento: Appunti della Lezione: {titolo.replace('_', ' ')}
-
-        TRASCRIZIONE:
+        Usa questo titolo: Appunti della Lezione: {titolo.replace('_', ' ')}
+        
+        TRASCRIZIONE FORNITA:
         {testo}
         """
     else:
@@ -282,13 +277,24 @@ def main():
                 successo = True
 
     finally:
-
         print("\n🧹 Pulizia dei file audio intermedi (chunk e audio pulito)...")
         for f_path in file_temporanei:
             try:
                 if os.path.exists(f_path): os.remove(f_path)
             except OSError as e:
                 print(f"   - Errore durante l'eliminazione di {f_path}: {e}")
+        
+        # Elimina anche i file temporanei generati da pdflatex
+        print("🧹 Pulizia dei file di compilazione LaTeX...")
+        estensioni_da_eliminare = ['.aux', '.log', '.out', '.fls', '.fdb_latexmk']
+        for ext in estensioni_da_eliminare:
+            file_temp = os.path.join(output_dir, f"{base_name}_appunti{ext}")
+            try:
+                if os.path.exists(file_temp):
+                    os.remove(file_temp)
+                    print(f"   - Eliminato: {os.path.basename(file_temp)}")
+            except OSError as e:
+                print(f"   - Errore durante l'eliminazione di {file_temp}: {e}")
         
         if successo:
             pulisci_cartella_output(output_dir, base_name)
