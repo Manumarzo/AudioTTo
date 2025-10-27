@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo/logo_audiotto.png" alt="AudioTTo Logo" width="200"/>
+  <img src="logo/logo_audiotto_nobg.png" alt="AudioTTo Logo" width="200"/>
 </p>
 
 # 🎧 AudioTTo — Audio Transcription, Slide Integration & LaTeX Notes Generation
