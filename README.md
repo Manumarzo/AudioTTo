@@ -1,5 +1,8 @@
-# <img src="logo/logo_audiotto_nobg.png" alt="AudioTTo Logo" width="40" style="vertical-align: middle;"/> AudioTTo — Audio Transcription, Slide Integration & LaTeX Notes Generation
+<p align="center">
+  <img src="logo/logo_audiotto_nobg.png" alt="AudioTTo Logo" width="200"/>
+</p>
 
+# AudioTTo — Audio Transcription, Slide Integration & LaTeX Notes Generation
 
 **AudioTTo** is a complete Python tool that:
 
