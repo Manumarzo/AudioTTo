@@ -13,7 +13,7 @@
 - 🖼️ optionally integrates **PDF slides** into the LaTeX document
 - 🧹 performs full **cleanup** of intermediate files
 
-> **Note:** The output and messages are in Italian, but Whisper automatically detects the language. Just translate the prompt and messages if you want to try another language.
+> **Note:** The GUI is in English. Whisper automatically detects the audio language, and the generated notes will be in the same language as the audio.
 
 ---
 
@@ -35,7 +35,7 @@ export GEMINI_API_KEY="your_api_key_here"
 Open a terminal in the project directory and install all dependencies:
 
 ```bash
-pip install librosa soundfile noisereduce pydub imageio-ffmpeg faster-whisper google-generativeai setuptools PyMuPDF Pillow
+pip install -r requirements.txt
 ```
 
 > ✅ `PyMuPDF` and `Pillow` are required for slide-to-image conversion.
@@ -44,39 +44,50 @@ pip install librosa soundfile noisereduce pydub imageio-ffmpeg faster-whisper go
 
 ## 🚀 Usage
 
-You can run the script on any audio file (`.wav`, `.mp3`, `.m4a`, etc.). Optionally, you can provide a **PDF of slides** and specify which pages to include.
+AudioTTo offers two ways to use the software: a modern **Graphical User Interface (GUI)** and a classic **Command Line Interface (CLI)**.
 
-### Basic usage
+### Option 1: Graphical User Interface (GUI) 🖥️
 
+The easiest way to use AudioTTo is via the web-based interface.
+
+1.  **Start the application**:
+    ```bash
+    python gui_app.py
+    ```
+
+2.  **Open your browser**:
+    The interface will open automatically at `http://localhost:8000`.
+    - Drag & drop your audio and PDF files.
+    - Select page ranges if needed.
+    - View progress in real-time.
+    - Open generated PDFs directly in the browser.
+
+### Option 2: Command Line Interface (CLI) 💻
+
+For advanced users or automation, you can run the script directly from the terminal.
+
+#### Basic usage
 ```bash
 python AudioTTo.py path/to/audio_file.wav
 ```
 
-### With slides
-
+#### With slides
 ```bash
 python AudioTTo.py path/to/audio_file.wav --slides path/to/slides.pdf
 ```
 
-### With slide page range
-
+#### With slide page range
 ```bash
 python AudioTTo.py path/to/audio_file.wav --slides slides.pdf --pages 3-12
 ```
 
-### Optional arguments
+#### Optional arguments
 
 | Argument    | Description                                           | Default value          |
 |-------------|-------------------------------------------------------|------------------------|
 | `--slides`  | Path to a **PDF file** containing lecture slides      | None                   |
 | `--pages`   | Page range from the slides to include (e.g. `"5-12"`) | Entire PDF             |
 | `--threads` | Number of parallel CPU cores used for transcription   | `4` or `cpu_count()-1` |
-
-Example:
-
-```bash
-python AudioTTo.py university_lecture.wav --slides slides.pdf --pages 5-15 --threads 6
-```
 
 ---
 
@@ -121,9 +132,9 @@ At the end, only the `.txt`, `.tex`, and `.pdf` files remain.
 | `split_audio()`                      | Splits audio into time-based segments                     |
 | `transcribe_chunks_local_parallel()` | Transcribes chunks in parallel using Faster-Whisper       |
 | `process_slides()`                   | Converts PDF slides into images for Gemini                |
-| `genera_documento_latex()`           | Generates LaTeX code with Gemini (slides + transcription) |
-| `compila_pdf()`                      | Compiles `.tex` to `.pdf` twice                           |
-| `pulisci_cartella_output()`          | Cleans intermediate files from the output directory       |
+| `generate_latex_document()`           | Generates LaTeX code with Gemini (slides + transcription) |
+| `compile_pdf()`                      | Compiles `.tex` to `.pdf` twice                           |
+| `cleanup_output()`                   | Cleans intermediate files from the output directory       |
 
 ---
 

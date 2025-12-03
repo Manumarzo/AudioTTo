@@ -1,3 +1,5 @@
 audio/
 output/
 slides/
+.env
+temp_uploads/

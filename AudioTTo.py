@@ -1,5 +1,9 @@
-# COMANDO DI INSTALLAZIONE:
-# pip install librosa soundfile noisereduce pydub imageio-ffmpeg faster-whisper google-generativeai setuptools PyMuPDF Pillow
+# -------------------------------------------
+#   AudioTTo - Multilingual Enhanced Version
+#   Automatic Language Detection + Notes in
+#   the Language of the Audio
+#   All print messages in English
+# -------------------------------------------
 
 import os
 import sys
@@ -16,89 +20,104 @@ import multiprocessing
 import warnings
 import time
 from typing import List
+from dotenv import load_dotenv
 
-# Import specifici per la conversione delle slide
-import fitz  # PyMuPDF per i PDF
+import fitz  # PyMuPDF for PDF slide extraction
 import PIL.Image
 
-warnings.filterwarnings("ignore", category=UserWarning, module='ctranslate2') #provare a mettere solo ignore
+# Force UTF-8 encoding on Windows
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+
+warnings.filterwarnings("ignore", category=UserWarning, module='ctranslate2')
+
+# Load environment variables
+load_dotenv()
 
 # ---------------- CONFIG ----------------
 MODEL_SIZE = "small"
 COMPUTE_TYPE = "int8"
-LANGUAGE = None
+LANGUAGE = None  # Auto-detect language
 N_THREADS = 4
 CHUNK_LENGTH_MS_LOCAL = 10 * 60 * 1000
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+model = "gemini-2.5-flash"
 AudioSegment.converter = ffmpeg.get_ffmpeg_exe()
 model_worker = None
+
 
 def init_worker():
     global model_worker
     model_worker = WhisperModel(MODEL_SIZE, device="cpu", compute_type=COMPUTE_TYPE)
 
-# ---------------- FUNZIONI SLIDE (SOLO PDF) ----------------
+
+# ---------------- SLIDES PROCESSING ----------------
 def process_slides(slides_path: str, pages_range: str = None) -> List[PIL.Image.Image]:
     if not slides_path or not os.path.exists(slides_path):
-        print("⚠️  Percorso slide non fornito o non esistente.")
+        print("⚠️  Slides path not provided or does not exist.")
         return []
 
-    print(f"🖼️  Processamento delle slide da: {slides_path}")
+    print(f"🖼️  Processing slides from: {slides_path}")
     images = []
     file_ext = os.path.splitext(slides_path)[1].lower()
 
-    # --- Gestione dei file PDF ---
     if file_ext == '.pdf':
         try:
             doc = fitz.open(slides_path)
             start_page, end_page = 0, len(doc) - 1
+
             if pages_range:
                 try:
                     parts = pages_range.split('-')
                     start_page = int(parts[0]) - 1
                     end_page = int(parts[1]) - 1 if len(parts) > 1 else start_page
                 except (ValueError, IndexError):
-                    print(f"⚠️ Formato pagine non valido '{pages_range}'. Uso l'intero PDF.")
-            
+                    print(f"⚠️ Invalid page format '{pages_range}'. Using full PDF.")
+
             start_page = max(0, start_page)
             end_page = min(len(doc) - 1, end_page)
 
-            print(f"   - Estraggo le pagine da {start_page + 1} a {end_page + 1}...")
+            print(f"   - Extracting pages {start_page + 1} to {end_page + 1}...")
             for i in range(start_page, end_page + 1):
                 page = doc.load_page(i)
                 pix = page.get_pixmap(dpi=150)
                 img = PIL.Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
                 images.append(img)
             doc.close()
+
         except Exception as e:
-            print(f"❌ Errore durante la conversione del PDF: {e}")
+            print(f"❌ Error converting PDF: {e}")
             return []
     else:
-        print(f"❌ Formato slide non supportato: {file_ext}. Lo script accetta solo file PDF.")
+        print(f"❌ Unsupported slide format: {file_ext}. Only PDF is supported.")
+        return []
 
     if images:
-        print(f"✔️  {len(images)} slide processate e pronte per essere inviate a Gemini.")
+        print(f"✔️  {len(images)} slides processed.")
     return images
 
 
-# ---------------- FUNZIONI AUDIO (invariate) ----------------
-def crea_cartella_output(audio_path: str) -> str:
+# ---------------- AUDIO FUNCTIONS ----------------
+def create_output_folder(audio_path: str) -> str:
     base_name = os.path.splitext(os.path.basename(audio_path))[0]
     output_dir = os.path.join("output", base_name)
     os.makedirs(output_dir, exist_ok=True)
     return output_dir
 
+
 def denoise_audio(input_path: str, output_dir: str) -> str:
-    print("🔊 Riduzione rumore in corso...") 
+    print("🔊 Performing noise reduction...")
     y, sr = librosa.load(input_path, sr=None)
     y_denoised = nr.reduce_noise(y=y, sr=sr)
     clean_path = os.path.join(output_dir, f"{os.path.splitext(os.path.basename(input_path))[0]}_clean.wav")
     sf.write(clean_path, y_denoised, sr)
-    print("✔️ Rumore ridotto.") 
+    print("✔️ Noise reduced.")
     return clean_path
 
+
 def split_audio(audio_path: str, chunk_len_ms: int, output_dir: str) -> list:
-    print(f"🔪 Divisione dell'audio in chunk da {chunk_len_ms // 60000} minuti...") 
+    print(f"🔪 Splitting audio into {chunk_len_ms // 60000}-minute chunks...")
     audio = AudioSegment.from_file(audio_path)
     chunks = []
     for i in range(0, len(audio), chunk_len_ms):
@@ -106,202 +125,205 @@ def split_audio(audio_path: str, chunk_len_ms: int, output_dir: str) -> list:
         chunk_path = os.path.join(output_dir, f"chunk_{i//chunk_len_ms}.wav")
         chunk.export(chunk_path, format="wav")
         chunks.append(chunk_path)
-    print(f"✔️ Audio diviso in {len(chunks)} chunk.")
+    print(f"✔️ Audio split into {len(chunks)} chunks.")
     return chunks
 
-def transcribe_chunk_worker(chunk_path: str) -> str:
-    segments, _ = model_worker.transcribe(chunk_path, language=LANGUAGE)
-    return " ".join(s.text for s in segments)
 
-def transcribe_chunks_local_parallel(chunks: list, num_workers: int) -> str:
-    print(f"🚀 Avvio trascrizione parallela su {num_workers} core della CPU...")
-    trascrizioni = []
+def transcribe_chunk_worker(chunk_path: str):
+    segments, info = model_worker.transcribe(chunk_path, language=LANGUAGE)
+    text = " ".join(s.text for s in segments)
+    return text, info.language  # Return transcription + detected language
+
+
+def transcribe_chunks_local_parallel(chunks: list, num_workers: int):
+    print(f"🚀 Starting parallel transcription on {num_workers} CPU cores...")
+
+    texts = []
+    langs = []
+
     with multiprocessing.Pool(processes=num_workers, initializer=init_worker) as pool:
-        for chunk_path, testo in zip(chunks, pool.map(transcribe_chunk_worker, chunks)):
-            trascrizioni.append(testo)
-            print(f"   - Chunk {os.path.basename(chunk_path)} completato e ricevuto nel processo principale.", flush=True)
-    return " ".join(trascrizioni).strip()
+        for chunk_path, (text, lang) in zip(chunks, pool.map(transcribe_chunk_worker, chunks)):
+            texts.append(text)
+            langs.append(lang)
+            print(f"   - Chunk {os.path.basename(chunk_path)} completed (language detected: {lang}).", flush=True)
+
+    from collections import Counter
+    final_lang = Counter(langs).most_common(1)[0][0]
+
+    return " ".join(texts).strip(), final_lang
 
 
-# ---------------- GENERAZIONE DOCUMENTO ----------------
-def genera_documento_latex(testo: str, titolo: str, slides: List[PIL.Image.Image]) -> str:
+# ---------------- DOCUMENT GENERATION ----------------
+def generate_latex_document(text: str, title: str, slides: List[PIL.Image.Image], audio_lang: str) -> str:
     if not GEMINI_API_KEY:
-        print("❌ Chiave API di Gemini non trovata.")
+        print("❌ Gemini API Key not found.")
         return ""
-    
-    print("🧠 Generazione documento LaTeX con Gemini...")
+
+    print("🧠 Generating LaTeX document with Gemini...")
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    model = genai.GenerativeModel(model)
 
-    # Scegliamo il prompt in base alla presenza delle slide
+    # Prompt for Gemini
+    base_prompt = f"""
+You are an expert assistant that creates complete, clear, academic LaTeX lesson notes.
+
+IMPORTANT RULES:
+- The output MUST start with `\\documentclass{{article}}` and MUST end with `\\end{{document}}`.
+- DO NOT include explanations, comments, markdown code blocks, or introductory text.
+- You must write the entire document in the SAME LANGUAGE as the transcription. The detected language is: {audio_lang}.
+- Use only standard LaTeX packages: geometry, amsmath, graphicx, helvet, inputenc (utf8).
+- Reformulate sentences to be clear, well-organized, and academic.
+- Use logical sections and subsections.
+- Add a final summary section.
+
+Document Title:
+Lecture Notes: {title.replace('_', ' ')}
+
+TRANSCRIPTION:
+{text}
+"""
+
     if slides:
-        # Prompt per TRASCRIZIONE + SLIDE (due fonti)
-        prompt_iniziale = f"""
-        Sei un assistente esperto nella creazione di documenti LaTeX. Il tuo compito è creare appunti dettagliati e ben strutturati di una lezione.
-        Hai a disposizione DUE FONTI: una TRASCRIZIONE testuale e una serie di IMMAGINI delle slide. Integra entrambe per creare un documento LaTeX completo.
-
-        REGOLE FONDAMENTALI:
-        - La tua risposta DEVE iniziare immediatamente con `\\documentclass{{article}}` e finire con `\\end{{document}}`. NON includere spiegazioni o codice markdown.
-        - Usa il font Helvetica per tutto il documento. Per farlo, includi `\\usepackage{{helvet}}` e `\\renewcommand{{\\familydefault}}{{\\sfdefault}}` nel preambolo.
-        - Usa le IMMAGINI delle slide come guida per la STRUTTURA del documento (sezioni, sottosezioni).
-        - Usa la TRASCRIZIONE e il contenuto delle IMMAGINI per riempire le sezioni con spiegazioni dettagliate, esempi e approfondimenti.
-        - Riformula le frasi per renderle più chiare e accademiche.
-        - Usa pacchetti standard come `geometry`, `amsmath`, `graphicx`, `helvet` e `inputenc` con `utf8`.
-        - Includi una sezione finale di riassunto.
-
-        Usa questo titolo: Appunti della Lezione: {titolo.replace('_', ' ')}
-        
-        TRASCRIZIONE FORNITA:
-        {testo}
-        """
+        print("   - Sending transcription + slides to Gemini.")
+        prompt = [base_prompt] + slides
     else:
-        # Prompt per SOLA TRASCRIZIONE (una fonte)
-        prompt_iniziale = f"""
-        Sei un assistente esperto nella creazione di documenti LaTeX. A partire dalla trascrizione di una lezione, genera un documento LaTeX completo, ben strutturato e pronto per la compilazione.
-
-        REGOLE FONDAMENTALI:
-        - La tua risposta DEVE iniziare immediatamente con `\\documentclass{{article}}` e finire esattamente con `\\end{{document}}`.
-        - NON includere frasi introduttive, spiegazioni, commenti o blocchi di codice Markdown. La tua risposta deve essere solo e unicamente codice LaTeX valido.
-        - Struttura il documento con un titolo, la data di oggi, e sezioni/sottosezioni logiche basate sul contenuto.
-        - Usa pacchetti standard come `geometry`, `amsmath`, `graphicx`, `helvet` e `inputenc` con `utf8`.
-        - Se sono presenti formule scrivile correttamente.
-        - Utilizza elenchi puntati (`itemize`) e numerati (`enumerate`) per organizzare le informazioni in modo chiaro.
-        - Correggi eventuali errori grammaticali e di battitura.
-        - Riformula le frasi per renderle più chiare e accademiche.
-        - Includi una sezione finale di riassunto chiamata `\\section*{{Riassunto Finale}}`.
-
-        Usa questo titolo per il documento: Appunti della Lezione: {titolo.replace('_', ' ')}
-
-        TRASCRIZIONE:
-        {testo}
-        """
-
-    prompt_parts = [prompt_iniziale]
-    if slides:
-        print("   - Invio di 2 fonti a Gemini (trascrizione + immagini).")
-        prompt_parts.extend(slides)
-    else:
-        print("   - Invio di 1 fonte a Gemini (solo trascrizione).")
+        print("   - Sending transcription only to Gemini.")
+        prompt = [base_prompt]
 
     try:
-        risposta = model.generate_content(prompt_parts)
-        contenuto = risposta.text.strip()
-        # Pulizia robusta dell'output
-        if "\\documentclass" in contenuto:
-            contenuto = contenuto[contenuto.find("\\documentclass"):]
-        if "\\end{document}" in contenuto:
-            contenuto = contenuto[:contenuto.rfind("\\end{document}") + len("\\end{document}")]
-        
-        return contenuto
+        response = model.generate_content(prompt)
+        latex = response.text.strip()
+
+        if "\\documentclass" in latex:
+            latex = latex[latex.find("\\documentclass"):]
+        if "\\end{document}" in latex:
+            latex = latex[:latex.rfind("\\end{document}") + len("\\end{document}")]
+
+        return latex
+
     except Exception as e:
-        print(f"❌ Errore durante la chiamata a Gemini: {e}")
+        print(f"❌ Error during Gemini request: {e}")
         return ""
 
-# ---------------- COMPILAZIONE E PULIZIA ----------------
-def compila_pdf(tex_path: str) -> bool:
-    print("📄 Compilazione del PDF...")
+
+# ---------------- COMPILATION ----------------
+def compile_pdf(tex_path: str) -> bool:
+    print("📄 Compiling PDF...")
+
     output_dir, file_name = os.path.split(tex_path)
-    for _ in range(2): # Compila due volte per riferimenti incrociati
+
+    for _ in range(2):  # run twice
         try:
             subprocess.run(
                 ["pdflatex", "-interaction=nonstopmode", file_name],
                 check=True, cwd=output_dir, capture_output=True
             )
-        except (FileNotFoundError, subprocess.CalledProcessError) as e:
-            print(f"❌ Errore compilazione PDF. Assicurati che 'pdflatex' sia installato. Dettagli: {e}")
+        except Exception as e:
+            print(f"❌ PDF compilation failed: {e}")
             return False
-    print("✅ PDF generato con successo.")
+
+    print("✅ PDF successfully generated.")
     return True
 
-def pulisci_cartella_output(output_dir: str, base_name: str):
-    print("\n🧹 Pulizia finale della cartella di output...")
-    file_da_mantenere = [
-        f"{base_name}_appunti.tex", 
-        f"{base_name}_appunti.pdf", 
+
+def cleanup_output(output_dir: str, base_name: str):
+    print("\n🧹 Final cleanup...")
+
+    keep_files = [
+        f"{base_name}_appunti.tex",
+        f"{base_name}_appunti.pdf",
         f"{base_name}_trascrizione.txt"
     ]
+
     for filename in os.listdir(output_dir):
-        if filename not in file_da_mantenere:
+        if filename not in keep_files:
             try:
                 os.remove(os.path.join(output_dir, filename))
-                print(f"   - Eliminato file intermedio: {filename}")
-            except OSError as e:
-                print(f"   - Errore durante l'eliminazione di {filename}: {e}")
-    print("✔️ Pulizia finale completata.")
+                print(f"   - Removed temporary file: {filename}")
+            except Exception as e:
+                print(f"   - Error deleting {filename}: {e}")
+
+    print("✔️ Cleanup completed.")
+
 
 # ---------------- MAIN ----------------
 def main():
+    print("🚀 Initializing AudioTTo...", flush=True)
     start_time = time.time()
-    parser = argparse.ArgumentParser(description="Trascrive audio e genera appunti LaTeX/PDF con slide PDF opzionali.")
-    parser.add_argument("file_audio", help="Percorso del file audio.")
-    parser.add_argument("--slides", help="Percorso del file PDF delle slide.")
-    parser.add_argument("--pages", help="Intervallo di pagine per PDF (es. '5-12').")
+
+    parser = argparse.ArgumentParser(description="Transcribes audio and generates LaTeX/PDF notes with optional PDF slides.")
+    parser.add_argument("file_audio", help="Path to the audio file.")
+    parser.add_argument("--slides", help="Path to PDF slides.")
+    parser.add_argument("--pages", help="Page range (e.g., '5-12').")
     parser.add_argument("--threads", type=int, default=N_THREADS)
     args = parser.parse_args()
 
-    output_dir = crea_cartella_output(args.file_audio)
+    output_dir = create_output_folder(args.file_audio)
     base_name = os.path.splitext(os.path.basename(args.file_audio))[0]
-    file_temporanei = []
-    successo = False
+    temp_files = []
+    succeeded = False
 
     try:
-        immagini_slide = process_slides(args.slides, args.pages)
+        slides_images = process_slides(args.slides, args.pages)
 
         clean_audio = denoise_audio(args.file_audio, output_dir)
-        file_temporanei.append(clean_audio)
+        temp_files.append(clean_audio)
+
         chunks = split_audio(clean_audio, CHUNK_LENGTH_MS_LOCAL, output_dir)
-        file_temporanei.extend(chunks)
+        temp_files.extend(chunks)
 
         num_workers = min(args.threads, len(chunks)) if chunks else 0
-        testo_trascritto = transcribe_chunks_local_parallel(chunks, num_workers) if num_workers else ""
+        transcript, audio_lang = transcribe_chunks_local_parallel(chunks, num_workers)
 
-        if not testo_trascritto.strip():
-            print("⚠️ La trascrizione è vuota. Interruzione del processo.")
+        if not transcript.strip():
+            print("⚠️ Transcription is empty. Stopping.")
             return
-        
-        # Salva la trascrizione prima di procedere
-        trascrizione_file = os.path.join(output_dir, f"{base_name}_trascrizione.txt")
-        with open(trascrizione_file, "w", encoding="utf-8") as f:
-            f.write(testo_trascritto)
-        print(f"💾 Trascrizione completa salvata in: {trascrizione_file}")
 
-        documento_latex = genera_documento_latex(testo_trascritto, base_name, immagini_slide)
-        
-        if documento_latex:
+        # Save transcription
+        transcript_file = os.path.join(output_dir, f"{base_name}_trascrizione.txt")
+        with open(transcript_file, "w", encoding="utf-8") as f:
+            f.write(transcript)
+        print(f"💾 Transcription saved at: {transcript_file}")
+        print(f"🌍 Detected language: {audio_lang}")
+
+        latex_doc = generate_latex_document(transcript, base_name, slides_images, audio_lang)
+
+        if latex_doc:
             tex_path = os.path.join(output_dir, f"{base_name}_appunti.tex")
             with open(tex_path, "w", encoding="utf-8") as f:
-                f.write(documento_latex)
-            print(f"📝 File LaTeX creato: {tex_path}")
+                f.write(latex_doc)
+            print(f"📝 LaTeX file created: {tex_path}")
 
-            if compila_pdf(tex_path):
-                successo = True
+            if compile_pdf(tex_path):
+                succeeded = True
 
     finally:
-        print("\n🧹 Pulizia dei file audio intermedi (chunk e audio pulito)...")
-        for f_path in file_temporanei:
+        print("\n🧹 Removing intermediate audio files...")
+        for f_path in temp_files:
             try:
-                if os.path.exists(f_path): os.remove(f_path)
-            except OSError as e:
-                print(f"   - Errore durante l'eliminazione di {f_path}: {e}")
-        
-        # Elimina anche i file temporanei generati da pdflatex
-        print("🧹 Pulizia dei file di compilazione LaTeX...")
-        estensioni_da_eliminare = ['.aux', '.log', '.out', '.fls', '.fdb_latexmk']
-        for ext in estensioni_da_eliminare:
-            file_temp = os.path.join(output_dir, f"{base_name}_appunti{ext}")
+                if os.path.exists(f_path):
+                    os.remove(f_path)
+            except Exception as e:
+                print(f"   - Error deleting {f_path}: {e}")
+
+        # Remove LaTeX compilation files
+        print("🧹 Cleaning LaTeX compilation files...")
+        for ext in ['.aux', '.log', '.out', '.fls', '.fdb_latexmk']:
+            tmp = os.path.join(output_dir, f"{base_name}_appunti{ext}")
             try:
-                if os.path.exists(file_temp):
-                    os.remove(file_temp)
-                    print(f"   - Eliminato: {os.path.basename(file_temp)}")
-            except OSError as e:
-                print(f"   - Errore durante l'eliminazione di {file_temp}: {e}")
-        
-        if successo:
-            pulisci_cartella_output(output_dir, base_name)
+                if os.path.exists(tmp):
+                    os.remove(tmp)
+                    print(f"   - Removed: {os.path.basename(tmp)}")
+            except Exception as e:
+                print(f"   - Error deleting {tmp}: {e}")
+
+        if succeeded:
+            cleanup_output(output_dir, base_name)
 
     total_seconds = int(time.time() - start_time)
-    print(f"\n⏱️  Tempo totale: {total_seconds // 60} min {total_seconds % 60} sec")
-    print(f"🎉 Processo terminato. I file finali si trovano in: {output_dir}")
+    print(f"\n⏱️ Total time: {total_seconds // 60} min {total_seconds % 60} sec")
+    print(f"🎉 Process completed. Final files are in: {output_dir}")
+
 
 if __name__ == "__main__":
     if sys.platform in ["win32", "darwin"]:

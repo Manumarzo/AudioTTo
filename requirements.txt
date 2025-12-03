@@ -1,0 +1,14 @@
+librosa
+soundfile
+noisereduce
+pydub
+imageio-ffmpeg
+faster-whisper
+google-generativeai
+setuptools
+PyMuPDF
+Pillow
+python-dotenv
+fastapi
+uvicorn
+python-multipart

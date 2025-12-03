@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AudioTTo - AI Transcriber</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Burger Button -->
+        <button id="burger-btn" class="burger-btn">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header>
+                <div class="logo">
+                    <h1>AudioTTo</h1>
+                </div>
+                <p class="subtitle">Audio Transcription & Notes Generation</p>
+            </header>
+
+            <div class="upload-section">
+                <!-- Audio Upload -->
+                <div class="drop-zone" id="audio-drop-zone">
+                    <div class="icon">🎙️</div>
+                    <h3>Audio File</h3>
+                    <p>Drag here or click to upload</p>
+                    <input type="file" id="audio-input" accept="audio/*" hidden>
+                    <div class="file-info" id="audio-file-info"></div>
+                </div>
+
+                <!-- PDF Upload -->
+                <div class="drop-zone" id="pdf-drop-zone">
+                    <div class="icon">📄</div>
+                    <h3>PDF Slides (Optional)</h3>
+                    <p>Drag here or click to upload</p>
+                    <input type="file" id="pdf-input" accept=".pdf" hidden>
+                    <div class="file-info" id="pdf-file-info"></div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="input-group">
+                    <label for="pages-input">Slide Pages (e.g., 1-5)</label>
+                    <input type="text" id="pages-input" placeholder="All">
+                </div>
+                <button id="start-btn" class="primary-btn" disabled>
+                    <span>Start Processing</span>
+                </button>
+            </div>
+
+            <div class="terminal-section">
+                <div class="terminal-header">
+                    <span>Terminal Log</span>
+                    <span class="status-indicator" id="status-indicator">Waiting...</span>
+                </div>
+                <div class="terminal-window" id="terminal-window">
+                    <div class="log-line">Welcome to AudioTTo GUI. Upload a file to start.</div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Sidebar Results -->
+        <aside class="sidebar">
+            <h2>Your Notes</h2>
+            <div id="results-list" class="results-list">
+                <!-- Items will be injected here via JS -->
+                <div class="empty-state">No notes generated.</div>
+            </div>
+        </aside>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+
+</html>
