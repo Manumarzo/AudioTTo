@@ -6,7 +6,7 @@
 
 **AudioTTo** is a complete Python tool that:
 
-- 🎙️ transcribes **audio files** locally using [Faster-Whisper](https://github.com/guillaumekln/faster-whisper)
+- 🎙️ transcribes **audio files** locally using [`Faster-Whisper`](https://github.com/guillaumekln/faster-whisper)
 - 🔊 performs **noise reduction** with [`noisereduce`](https://github.com/timsainb/noisereduce)
 - ✂️ automatically splits audio into **parallel-processable chunks**
 - 🧠 generates structured **LaTeX notes** (and compiles them into PDF) via **Gemini AI**
