@@ -7,6 +7,11 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from typing import List, Optional
 import glob
+from pydantic import BaseModel
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 app = FastAPI()
 
@@ -53,6 +58,52 @@ async def download_file(folder: str, filename: str):
     if os.path.exists(file_path):
         return FileResponse(file_path, filename=filename)
     return JSONResponse(status_code=404, content={"message": "File not found"})
+
+class ApiKeyRequest(BaseModel):
+    api_key: str
+
+@app.get("/api/key-status")
+async def get_api_key_status():
+    """Check if GEMINI_API_KEY is set in .env"""
+    # Reload to ensure we catch external changes or initial load issues
+    load_dotenv(override=True)
+    api_key = os.getenv("GEMINI_API_KEY")
+    return {"is_set": bool(api_key)}
+
+@app.post("/api/key")
+async def set_api_key(request: ApiKeyRequest):
+    """Update GEMINI_API_KEY in .env file"""
+    key = request.api_key.strip()
+    env_path = ".env"
+    
+    # Read existing lines
+    lines = []
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+    
+    # Update or append
+    key_found = False
+    new_lines = []
+    for line in lines:
+        if line.startswith("GEMINI_API_KEY="):
+            new_lines.append(f"GEMINI_API_KEY={key}\n")
+            key_found = True
+        else:
+            new_lines.append(line)
+    
+    if not key_found:
+        if new_lines and not new_lines[-1].endswith("\n"):
+            new_lines.append("\n")
+        new_lines.append(f"GEMINI_API_KEY={key}\n")
+    
+    with open(env_path, "w", encoding="utf-8") as f:
+        f.writelines(new_lines)
+    
+    # Update current process environment as well
+    os.environ["GEMINI_API_KEY"] = key
+    
+    return {"message": "API Key updated successfully"}
 
 @app.websocket("/ws/process")
 async def websocket_endpoint(websocket: WebSocket):

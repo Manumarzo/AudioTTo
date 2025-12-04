@@ -20,6 +20,9 @@
             <span></span>
         </button>
 
+        <!-- Settings Button (Moved here) -->
+        <button id="settings-btn" class="icon-btn settings-top-btn" title="Settings">⚙️</button>
+
         <!-- Main Content Area -->
         <main class="main-content">
             <header>
@@ -78,6 +81,28 @@
                 <div class="empty-state">No notes generated.</div>
             </div>
         </aside>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button id="close-modal-btn" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label for="api-key-input">Gemini API Key</label>
+                    <div class="api-key-wrapper">
+                        <input type="password" id="api-key-input" placeholder="Enter Gemini API Key">
+                    </div>
+                    <div id="key-status" class="key-status">Checking...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="save-key-btn" class="primary-btn">Save</button>
+            </div>
+        </div>
     </div>
 
     <script src="/static/script.js"></script>

@@ -161,7 +161,7 @@ def generate_latex_document(text: str, title: str, slides: List[PIL.Image.Image]
 
     print("🧠 Generating LaTeX document with Gemini...")
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel(model)
+    gen_model = genai.GenerativeModel(model)
 
     # Prompt for Gemini
     base_prompt = f"""
@@ -191,7 +191,7 @@ TRANSCRIPTION:
         prompt = [base_prompt]
 
     try:
-        response = model.generate_content(prompt)
+        response = gen_model.generate_content(prompt)
         latex = response.text.strip()
 
         if "\\documentclass" in latex:

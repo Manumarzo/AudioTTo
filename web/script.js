@@ -11,6 +11,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const burgerBtn = document.getElementById('burger-btn');
     const sidebar = document.querySelector('.sidebar');
 
+    // Modal Elements
+    const settingsBtn = document.getElementById('settings-btn');
+    const settingsModal = document.getElementById('settings-modal');
+    const closeModalBtn = document.getElementById('close-modal-btn');
+    const apiKeyInput = document.getElementById('api-key-input');
+    const saveKeyBtn = document.getElementById('save-key-btn');
+    const keyStatus = document.getElementById('key-status');
+
     // --- Burger Menu Logic ---
     burgerBtn.addEventListener('click', () => {
         sidebar.classList.toggle('open');
@@ -20,6 +28,79 @@ document.addEventListener('DOMContentLoaded', () => {
     let audioFile = null;
     let pdfFile = null;
     let ws = null;
+
+    // --- Modal Logic ---
+    function openModal() {
+        settingsModal.classList.remove('hidden');
+        checkKeyStatus();
+    }
+
+    function closeModal() {
+        settingsModal.classList.add('hidden');
+    }
+
+    settingsBtn.addEventListener('click', openModal);
+    closeModalBtn.addEventListener('click', closeModal);
+
+    // Close modal when clicking outside
+    settingsModal.addEventListener('click', (e) => {
+        if (e.target === settingsModal) {
+            closeModal();
+        }
+    });
+
+    // --- API Key Logic ---
+    async function checkKeyStatus() {
+        try {
+            const res = await fetch('/api/key-status');
+            const data = await res.json();
+            if (data.is_set) {
+                keyStatus.textContent = 'API Key is set ✅';
+                keyStatus.className = 'key-status set';
+                apiKeyInput.placeholder = '••••••••••••••••';
+            } else {
+                keyStatus.textContent = 'API Key missing ❌';
+                keyStatus.className = 'key-status missing';
+            }
+        } catch (err) {
+            console.error("Error checking key status:", err);
+            keyStatus.textContent = 'Error checking status';
+        }
+    }
+
+    saveKeyBtn.addEventListener('click', async () => {
+        const key = apiKeyInput.value.trim();
+        if (!key) {
+            alert("Please enter an API Key.");
+            return;
+        }
+
+        saveKeyBtn.disabled = true;
+        saveKeyBtn.textContent = 'Saving...';
+
+        try {
+            const res = await fetch('/api/key', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ api_key: key })
+            });
+
+            if (res.ok) {
+                alert("API Key saved successfully!");
+                apiKeyInput.value = '';
+                checkKeyStatus();
+                closeModal();
+            } else {
+                alert("Error saving API Key.");
+            }
+        } catch (err) {
+            console.error("Error saving key:", err);
+            alert("Error saving API Key.");
+        } finally {
+            saveKeyBtn.disabled = false;
+            saveKeyBtn.textContent = 'Save';
+        }
+    });
 
     // --- Drag & Drop Logic ---
     function setupDragDrop(zone, input, fileType, callback) {
@@ -200,4 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial load
     loadOutputs();
+    // Check key status on load is not strictly necessary if we check on modal open, 
+    // but good to know if we want to show a warning icon on the settings button later.
+    // For now, we only check when opening the modal.
 });
