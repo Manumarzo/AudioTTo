@@ -50,28 +50,32 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- API Key Logic ---
-    async function checkKeyStatus() {
+    async function getKeyStatus() {
         try {
             const res = await fetch('/api/key-status');
-            const data = await res.json();
-            if (data.is_set) {
-                keyStatus.textContent = 'API Key is set ✅';
-                keyStatus.className = 'key-status set';
-                apiKeyInput.placeholder = '••••••••••••••••';
-            } else {
-                keyStatus.textContent = 'API Key missing ❌';
-                keyStatus.className = 'key-status missing';
-            }
+            return await res.json();
         } catch (err) {
-            console.error("Error checking key status:", err);
-            keyStatus.textContent = 'Error checking status';
+            console.error("Error fetching key status:", err);
+            return { is_set: false };
+        }
+    }
+
+    async function checkKeyStatus() {
+        const data = await getKeyStatus();
+        if (data.is_set) {
+            keyStatus.textContent = 'API Key is set ✅';
+            keyStatus.className = 'key-status set';
+            apiKeyInput.placeholder = '••••••••••••••••';
+        } else {
+            keyStatus.textContent = 'API Key missing ❌';
+            keyStatus.className = 'key-status missing';
         }
     }
 
     saveKeyBtn.addEventListener('click', async () => {
         const key = apiKeyInput.value.trim();
         if (!key) {
-            alert("Please enter an API Key.");
+            showToast("Please enter an API Key.", 'error');
             return;
         }
 
@@ -86,16 +90,16 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (res.ok) {
-                alert("API Key saved successfully!");
+                showToast("API Key saved successfully!", 'success');
                 apiKeyInput.value = '';
                 checkKeyStatus();
                 closeModal();
             } else {
-                alert("Error saving API Key.");
+                showToast("Error saving API Key.", 'error');
             }
         } catch (err) {
             console.error("Error saving key:", err);
-            alert("Error saving API Key.");
+            showToast("Error saving API Key.", 'error');
         } finally {
             saveKeyBtn.disabled = false;
             saveKeyBtn.textContent = 'Save';
@@ -125,11 +129,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (files.length > 0) {
             const file = files[0];
             if (type === 'audio' && !file.type.startsWith('audio/')) {
-                alert('Please upload a valid audio file.');
+                showToast('Please upload a valid audio file.', 'error');
                 return;
             }
             if (type === 'pdf' && file.type !== 'application/pdf') {
-                alert('Please upload a valid PDF file.');
+                showToast('Please upload a valid PDF file.', 'error');
                 return;
             }
             callback(file);
@@ -154,6 +158,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Upload & Process Logic ---
     startBtn.addEventListener('click', async () => {
         if (!audioFile) return;
+
+        // 🔹 1. CHECK API KEY: Prima di fare qualsiasi cosa, controlliamo la chiave
+        const keyData = await getKeyStatus();
+        if (!keyData.is_set) {
+            showToast("Gemini API Key is missing! Please configure it in Settings.", 'error');
+            openModal();
+            return;
+        }
 
         startBtn.disabled = true;
         statusIndicator.textContent = 'Uploading file...';
@@ -284,4 +296,35 @@ document.addEventListener('DOMContentLoaded', () => {
     // Check key status on load is not strictly necessary if we check on modal open, 
     // but good to know if we want to show a warning icon on the settings button later.
     // For now, we only check when opening the modal.
+
+    // --- Toast Notification Logic ---
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+
+        // 🔹 DEDUPLICATION: Check if identical toast exists
+        const existingToasts = container.querySelectorAll('.toast');
+        for (let t of existingToasts) {
+            if (t.innerText.includes(message)) {
+                return; // Ignore duplicate
+            }
+        }
+
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+
+        let icon = 'ℹ️';
+        if (type === 'error') icon = '⚠️';
+        if (type === 'success') icon = '✅';
+
+        toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
+        container.appendChild(toast);
+
+        // Auto remove after 3s
+        setTimeout(() => {
+            toast.classList.add('hiding');
+            toast.addEventListener('animationend', () => {
+                if (toast.parentElement) toast.remove();
+            });
+        }, 3000);
+    }
 });

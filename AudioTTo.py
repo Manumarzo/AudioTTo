@@ -247,7 +247,7 @@ def cleanup_output(output_dir: str, base_name: str):
 
 
 # ---------------- MAIN ----------------
-def main():
+def main(args_list=None):
     print("🚀 Initializing AudioTTo...", flush=True)
     start_time = time.time()
 
@@ -256,22 +256,33 @@ def main():
     parser.add_argument("--slides", help="Path to PDF slides.")
     parser.add_argument("--pages", help="Page range (e.g., '5-12').")
     parser.add_argument("--threads", type=int, default=N_THREADS)
-    args = parser.parse_args()
+    
+    # MODIFICA: Se args_list è popolato (chiamata dalla GUI), usa quello.
+    # Altrimenti, se è None, argparse leggerà automaticamente sys.argv (chiamata da terminale).
+    if args_list:
+        args = parser.parse_args(args_list)
+    else:
+        args = parser.parse_args()
 
+    # Creazione cartelle e inizializzazione variabili
     output_dir = create_output_folder(args.file_audio)
     base_name = os.path.splitext(os.path.basename(args.file_audio))[0]
     temp_files = []
     succeeded = False
 
     try:
+        # 1. Elaborazione Slide
         slides_images = process_slides(args.slides, args.pages)
 
+        # 2. Pulizia Audio (Denoising)
         clean_audio = denoise_audio(args.file_audio, output_dir)
         temp_files.append(clean_audio)
 
+        # 3. Splitting Audio in chunk
         chunks = split_audio(clean_audio, CHUNK_LENGTH_MS_LOCAL, output_dir)
         temp_files.extend(chunks)
 
+        # 4. Trascrizione (Parallela se ci sono chunk multipli)
         num_workers = min(args.threads, len(chunks)) if chunks else 0
         transcript, audio_lang = transcribe_chunks_local_parallel(chunks, num_workers)
 
@@ -279,13 +290,14 @@ def main():
             print("⚠️ Transcription is empty. Stopping.")
             return
 
-        # Save transcription
+        # 5. Salvataggio file di testo trascrizione
         transcript_file = os.path.join(output_dir, f"{base_name}_trascrizione.txt")
         with open(transcript_file, "w", encoding="utf-8") as f:
             f.write(transcript)
         print(f"💾 Transcription saved at: {transcript_file}")
         print(f"🌍 Detected language: {audio_lang}")
 
+        # 6. Generazione LaTeX tramite LLM (Gemini)
         latex_doc = generate_latex_document(transcript, base_name, slides_images, audio_lang)
 
         if latex_doc:
@@ -294,10 +306,18 @@ def main():
                 f.write(latex_doc)
             print(f"📝 LaTeX file created: {tex_path}")
 
+            # 7. Compilazione PDF (pdflatex)
             if compile_pdf(tex_path):
                 succeeded = True
+        else:
+            print("❌ Failed to generate LaTeX document (AI response was empty or error).")
+
+    except Exception as e:
+        # Cattura errori generici per evitare crash silenziosi della GUI
+        print(f"❌ Critical Error during execution: {e}")
 
     finally:
+        # Pulizia file temporanei audio
         print("\n🧹 Removing intermediate audio files...")
         for f_path in temp_files:
             try:
@@ -306,7 +326,7 @@ def main():
             except Exception as e:
                 print(f"   - Error deleting {f_path}: {e}")
 
-        # Remove LaTeX compilation files
+        # Pulizia file temporanei LaTeX
         print("🧹 Cleaning LaTeX compilation files...")
         for ext in ['.aux', '.log', '.out', '.fls', '.fdb_latexmk']:
             tmp = os.path.join(output_dir, f"{base_name}_appunti{ext}")
@@ -317,6 +337,7 @@ def main():
             except Exception as e:
                 print(f"   - Error deleting {tmp}: {e}")
 
+        # Pulizia finale cartella output (se successo, cancella anche tex e txt per ordine, se vuoi)
         if succeeded:
             cleanup_output(output_dir, base_name)
 
@@ -326,6 +347,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # Fix obbligatorio per Multiprocessing su Windows quando si crea un EXE
     if sys.platform in ["win32", "darwin"]:
         multiprocessing.freeze_support()
         multiprocessing.set_start_method('spawn', force=True)

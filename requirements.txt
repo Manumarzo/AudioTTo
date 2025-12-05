@@ -12,3 +12,5 @@ python-dotenv
 fastapi
 uvicorn
 python-multipart
+pywebview
+pydantic

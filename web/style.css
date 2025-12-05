@@ -23,6 +23,13 @@ body {
     color: var(--text-primary);
     height: 100vh;
     overflow: hidden;
+
+    -webkit-user-select: none;
+    /* Per Chrome/Webview */
+    user-select: none;
+    /* Standard */
+    cursor: default;
+    /* Freccia normale sempre */
 }
 
 .app-container {
@@ -208,6 +215,12 @@ h1 {
     display: flex;
     flex-direction: column;
     gap: 0.2rem;
+
+    -webkit-user-select: text;
+    /* Riabilita selezione */
+    user-select: text;
+    cursor: text;
+    /* Cursore a forma di "I" per testo */
 }
 
 .log-line {
@@ -493,4 +506,85 @@ h1 {
 
 .key-status.missing {
     color: #ef4444;
+}
+
+input,
+textarea {
+    -webkit-user-select: text !important;
+    user-select: text !important;
+    cursor: auto !important;
+}
+
+/* Toast Notifications */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 9999;
+    pointer-events: none;
+    /* Let clicks pass through container */
+}
+
+.toast {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    opacity: 0;
+    transform: translateY(-20px);
+    animation: slideIn 0.3s forwards;
+    pointer-events: auto;
+    /* Re-enable clicks on toast */
+    min-width: 300px;
+    justify-content: center;
+}
+
+.toast.error {
+    border-left: 4px solid #ef4444;
+}
+
+.toast.success {
+    border-left: 4px solid #10b981;
+}
+
+.toast.info {
+    border-left: 4px solid #3b82f6;
+}
+
+.toast.hiding {
+    animation: fadeOut 0.3s forwards;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
 }

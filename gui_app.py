@@ -1,46 +1,59 @@
 import os
+import sys
 import shutil
-import subprocess
 import asyncio
-from fastapi import FastAPI, File, UploadFile, Form, WebSocket, WebSocketDisconnect
+import threading
+from io import StringIO
+from contextlib import redirect_stdout, redirect_stderr
+from fastapi import FastAPI, File, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from typing import List, Optional
-import glob
 from pydantic import BaseModel
 from dotenv import load_dotenv
+import uvicorn
+
+# Importiamo direttamente il modulo di elaborazione
+import AudioTTo
 
 load_dotenv()
 
-
 app = FastAPI()
 
-# Mount static files (HTML, CSS, JS)
-app.mount("/static", StaticFiles(directory="web"), name="static")
+# --- FUNZIONE PER TROVARE LE RISORSE (HTML) NELL'EXE ---
+def resource_path(relative_path):
+    """ Ottiene il percorso assoluto delle risorse, funziona sia in dev che in PyInstaller """
+    try:
+        # PyInstaller crea una cartella temporanea in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
-# Ensure output directory exists
+# Mount static files usando il path corretto
+web_folder = resource_path("web")
+if not os.path.exists(web_folder):
+    os.makedirs(web_folder, exist_ok=True) # Fallback per evitare crash
+
+app.mount("/static", StaticFiles(directory=web_folder), name="static")
+
 os.makedirs("output", exist_ok=True)
 os.makedirs("temp_uploads", exist_ok=True)
 
 @app.get("/")
 async def read_index():
-    return FileResponse("web/index.html")
+    return FileResponse(os.path.join(web_folder, "index.html"))
 
 @app.get("/outputs")
 async def list_outputs():
-    """List all generated PDF files in the output directory."""
-    # Pattern: output/<folder>/<file>.pdf
-    # We want to find all PDFs inside subdirectories of 'output'
     pdf_files = []
     for root, dirs, files in os.walk("output"):
         for file in files:
             if file.endswith(".pdf"):
-                # Create a relative path or a downloadable link structure
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, "output")
                 pdf_files.append({
                     "filename": file,
-                    "path": rel_path,
+                    "path": rel_path.replace("\\", "/"), # Fix per Windows paths in JSON
                     "folder": os.path.basename(root)
                 })
     return JSONResponse(content=pdf_files)
@@ -64,25 +77,19 @@ class ApiKeyRequest(BaseModel):
 
 @app.get("/api/key-status")
 async def get_api_key_status():
-    """Check if GEMINI_API_KEY is set in .env"""
-    # Reload to ensure we catch external changes or initial load issues
     load_dotenv(override=True)
     api_key = os.getenv("GEMINI_API_KEY")
     return {"is_set": bool(api_key)}
 
 @app.post("/api/key")
 async def set_api_key(request: ApiKeyRequest):
-    """Update GEMINI_API_KEY in .env file"""
     key = request.api_key.strip()
     env_path = ".env"
-    
-    # Read existing lines
     lines = []
     if os.path.exists(env_path):
         with open(env_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
     
-    # Update or append
     key_found = False
     new_lines = []
     for line in lines:
@@ -99,24 +106,44 @@ async def set_api_key(request: ApiKeyRequest):
     
     with open(env_path, "w", encoding="utf-8") as f:
         f.writelines(new_lines)
-    
-    # Update current process environment as well
     os.environ["GEMINI_API_KEY"] = key
-    
     return {"message": "API Key updated successfully"}
+
+# --- GESTIONE ESECUZIONE AUDIOTTO IN THREAD ---
+class OutputCapture(object):
+    """ Classe per catturare stdout e inviarlo al WebSocket """
+    def __init__(self, loop, websocket):
+        self.loop = loop
+        self.websocket = websocket
+
+    def write(self, data):
+        if data.strip():
+            # Invia il log al websocket in modo thread-safe
+            asyncio.run_coroutine_threadsafe(self.websocket.send_text(data.strip()), self.loop)
+
+    def flush(self):
+        pass
+
+def run_audiotto_wrapper(args, loop, websocket):
+    """ Esegue AudioTTo catturando l'output """
+    
+    # 🔹 SYNC: Aggiorniamo la variabile globale del modulo AudioTTo con la chiave corrente
+    current_key = os.getenv("GEMINI_API_KEY")
+    if current_key:
+        AudioTTo.GEMINI_API_KEY = current_key
+
+    capture = OutputCapture(loop, websocket)
+    # Redirige stdout e stderr verso il websocket
+    with redirect_stdout(capture), redirect_stderr(capture):
+        try:
+            AudioTTo.main(args)
+        except Exception as e:
+            print(f"❌ Critical Error: {e}")
 
 @app.websocket("/ws/process")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     try:
-        # 1. Receive configuration and file metadata first (if needed) or just wait for the start signal
-        # For simplicity, we might handle the file upload via a separate POST request, 
-        # and use the WebSocket ONLY for streaming logs of a specific job.
-        # However, to keep it unified, let's assume the client uploads files via POST first, 
-        # gets a "job_id" (or just uses a single global lock for this local tool), and then connects to WS.
-        
-        # SIMPLIFIED APPROACH for local tool:
-        # Client sends JSON with filenames (already uploaded) and config.
         data = await websocket.receive_json()
         audio_filename = data.get("audio_filename")
         slides_filename = data.get("slides_filename")
@@ -126,62 +153,37 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.send_text("❌ Error: No audio file specified.")
             await websocket.close()
             return
+        
+        # 🔹 CONTROLLO API KEY: Se non c'è la chiave, blocchiamo tutto subito
+        qa_key = os.getenv("GEMINI_API_KEY")
+        if not qa_key or not qa_key.strip():
+             await websocket.send_text("❌ Error: API Key missing! Please set it in the Settings tab.")
+             await websocket.close()
+             return
 
         audio_path = os.path.join("temp_uploads", audio_filename)
         
-        cmd = ["python", "AudioTTo.py", audio_path]
-        
+        # Costruiamo la lista di argomenti da passare a AudioTTo
+        cmd_args = [audio_path]
         if slides_filename:
-            slides_path = os.path.join("temp_uploads", slides_filename)
-            cmd.extend(["--slides", slides_path])
-            
+            cmd_args.extend(["--slides", os.path.join("temp_uploads", slides_filename)])
         if pages:
-            cmd.extend(["--pages", pages])
-            
-        # Set encoding to UTF-8 for the subprocess to handle emojis on Windows
-        env = os.environ.copy()
-        env["PYTHONIOENCODING"] = "utf-8"
+            cmd_args.extend(["--pages", pages])
 
-        # Run subprocess and stream output
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            env=env
-        )
+        await websocket.send_text(f"🚀 Starting processing...")
 
-        await websocket.send_text(f"🚀 Starting command: {' '.join(cmd)}")
-
-        while True:
-            line = await process.stdout.readline()
-            if not line:
-                break
-            decoded_line = line.decode('utf-8', errors='replace').strip()
-            if decoded_line:
-                await websocket.send_text(decoded_line)
-
-        await process.wait()
+        # Eseguiamo in un thread separato per non bloccare il server
+        loop = asyncio.get_event_loop()
+        await asyncio.to_thread(run_audiotto_wrapper, cmd_args, loop, websocket)
         
-        if process.returncode == 0:
-            await websocket.send_text("✅ Process completed successfully!")
-            await websocket.send_text("REFRESH_OUTPUTS") # Signal to frontend to refresh list
-        else:
-            await websocket.send_text(f"❌ Process error (Code {process.returncode})")
+        await websocket.send_text("✅ Process completed check log above.")
+        await websocket.send_text("REFRESH_OUTPUTS")
 
     except WebSocketDisconnect:
         print("Client disconnected")
     except Exception as e:
         await websocket.send_text(f"❌ Internal error: {str(e)}")
     finally:
-        # Cleanup uploaded files
-        try:
-            if 'audio_path' in locals() and os.path.exists(audio_path):
-                os.remove(audio_path)
-            if 'slides_path' in locals() and os.path.exists(slides_path):
-                os.remove(slides_path)
-        except Exception as e:
-            print(f"Error cleaning up files: {e}")
-
         try:
             await websocket.close()
         except:
@@ -194,8 +196,36 @@ async def upload_file_endpoint(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, file_object)
     return {"filename": file.filename}
 
+# --- INIZIO NUOVO BLOCCO IF NAME == MAIN PER GUI_APP.PY ---
+
+def start_server():
+    """ Avvia il server Uvicorn in un thread separato """
+    # log_level="error" riduce il rumore nella console
+    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")
+
 if __name__ == "__main__":
-    import uvicorn
-    # Open browser automatically (optional, user can do it)
-    print("Starting server at http://localhost:8000")
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    import multiprocessing
+    import threading
+    import webview  # Importiamo pywebview
+
+    # Fix per PyInstaller su Windows
+    multiprocessing.freeze_support()
+    
+    # 1. Avvia il server FastAPI in un thread parallelo (Demone = si chiude quando chiudi l'app)
+    server_thread = threading.Thread(target=start_server, daemon=True)
+    server_thread.start()
+
+    # 2. Crea la finestra desktop "nativa"
+    # width e height sono le dimensioni iniziali
+    webview.create_window(
+        title='AudioTTo - Generatore Appunti', 
+        url='http://127.0.0.1:8000',
+        width=1000,
+        height=800,
+        resizable=True
+    )
+
+    # 3. Avvia la GUI (Questo blocco ferma l'esecuzione finché non chiudi la finestra)
+    webview.start()
+
+# --- FINE NUOVO BLOCCO ---
