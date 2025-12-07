@@ -52,7 +52,7 @@ Before you begin, ensure you have the following:
 
 If you downloaded the **standalone executable (`.exe`)**:
 
-1.  **Download** the latest version from the [Releases](https://github.com/yourusername/AudioTTo/releases) page.
+1.  **Download** the latest version from the [Releases](https://github.com/Manumarzo/AudioTTo/releases) page.
 2.  **Prerequisites**: You still need a working **LaTeX distribution** installed (see Prerequisites above).
 3.  **Run**: Just double-click `AudioTTo.exe`. No Python installation required!
 
@@ -62,7 +62,7 @@ If you downloaded the **standalone executable (`.exe`)**:
 
 1.  **Clone the repository** (or download usage files):
     ```bash
-    git clone https://github.com/yourusername/AudioTTo.git
+    git clone https://github.com/Manumarzo/AudioTTo.git
     cd AudioTTo
     ```
 
