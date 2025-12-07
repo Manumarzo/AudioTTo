@@ -2,170 +2,149 @@
   <img src="logo/logo_audiotto_nobg.png" alt="AudioTTo Logo" width="200"/>
 </p>
 
-# AudioTTo — Audio Transcription, Slide Integration & LaTeX Notes Generation
+<h1 align="center">AudioTTo</h1>
 
-**AudioTTo** is a complete Python tool that:
+<p align="center">
+  <b>Audio Transcription, Slide Integration & LaTeX Notes Generation</b>
+</p>
 
-- 🎙️ transcribes **audio files** locally using [`Faster-Whisper`](https://github.com/guillaumekln/faster-whisper)
-- 🔊 performs **noise reduction** with [`noisereduce`](https://github.com/timsainb/noisereduce)
-- ✂️ automatically splits audio into **parallel-processable chunks**
-- 🧠 generates structured **LaTeX notes** (and compiles them into PDF) via **Gemini AI**
-- 🖼️ optionally integrates **PDF slides** into the LaTeX document
-- 🧹 performs full **cleanup** of intermediate files
+<p align="center">
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.9+-blue.svg?style=flat&logo=python&logoColor=white" alt="Python 3.9+"></a>
+  <a href="https://github.com/guillaumekln/faster-whisper"><img src="https://img.shields.io/badge/Transcribed%20by-Faster--Whisper-green" alt="Faster-Whisper"></a>
+  <a href="https://deepmind.google/technologies/gemini/"><img src="https://img.shields.io/badge/AI-Gemini-orange" alt="Gemini AI"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-purple.svg" alt="License: MIT"></a>
+</p>
 
-> **Note:** The GUI is in English. Whisper automatically detects the audio language, and the generated notes will be in the same language as the audio.
-
----
-
-## 🧩 Requirements
-
-- **Python 3.9+**
-- A working **LaTeX distribution** (`TeX Live`, `MikTeX`, or `MacTeX`)  
-  → required to compile `.tex` into `.pdf`
-- **Google Gemini API key** stored as an environment variable:
-
-```bash
-export GEMINI_API_KEY="your_api_key_here"
-```
+<p align="center">
+  <i>Transform your audio recordings into structured, professional LaTeX notes instantly.</i>
+</p>
 
 ---
 
-## ⚙️ Installation
+## 📖 Overview
 
-Open a terminal in the project directory and install all dependencies:
+**AudioTTo** is a powerful Python application designed to streamline the process of creating study notes. It takes audio recordings (lectures, meetings, etc.) and optionally PDF slides, then uses advanced AI to generate comprehensive LaTeX documents.
 
-```bash
-pip install -r requirements.txt
-```
+### ✨ Key Features
 
-> ✅ `PyMuPDF` and `Pillow` are required for slide-to-image conversion.
+- 🎙️ **Local Transcription**: Uses [`Faster-Whisper`](https://github.com/guillaumekln/faster-whisper) for fast, accurate, and private audio transcription.
+- ✂️ **Efficient Processing**: Automatically chunks audio for parallel processing, maximizing CPU usage.
+- 🧠 **AI-Powered Notes**: Leverages **Google Gemini AI** to synthesize transcripts into structured LaTeX notes.
+- 🖼️ **Visual Integration**: Extracts images from PDF slides and embeds them directly into the notes where relevant.
+- 🚀 **Modern UI**: Includes a user-friendly web interface for easy drag-and-drop operation.
 
 ---
 
-## 🚀 Usage
+## 🛠️ Prerequisites
 
-AudioTTo offers two ways to use the software: a modern **Graphical User Interface (GUI)** and a classic **Command Line Interface (CLI)**.
+Before you begin, ensure you have the following:
 
-### Option 1: Graphical User Interface (GUI) 🖥️
+- **Python 3.9** or higher.
+- A **LaTeX Distribution** installed and added to your PATH (required for PDF compilation):
+    - Windows: [MiKTeX](https://miktex.org/) or [TeX Live](https://www.tug.org/texlive/)
+    - macOS: [MacTeX](https://www.tug.org/mactex/)
+    - Linux: `texlive-full`
+- A **Google Gemini API Key**. You can get one from [Google AI Studio](https://aistudio.google.com/).
 
-The easiest way to use AudioTTo is via the web-based interface.
+---
 
-1.  **Start the application**:
+## 📦 Installation (Executable)
+
+If you downloaded the **standalone executable (`.exe`)**:
+
+1.  **Download** the latest version from the [Releases](https://github.com/yourusername/AudioTTo/releases) page.
+2.  **Prerequisites**: You still need a working **LaTeX distribution** installed (see Prerequisites above).
+3.  **Run**: Just double-click `AudioTTo.exe`. No Python installation required!
+
+---
+
+## ⚙️ Installation (Source Code)
+
+1.  **Clone the repository** (or download usage files):
+    ```bash
+    git clone https://github.com/yourusername/AudioTTo.git
+    cd AudioTTo
+    ```
+
+2.  **Install dependencies**:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+---
+
+## 🚀 How to Use
+
+AudioTTo provides both a modern Web GUI and a classic CLI.
+
+### 🖥️ Option 1: Web Interface (Recommended)
+
+The easiest way to use AudioTTo.
+
+1.  **Launch the application**:
     ```bash
     python gui_app.py
     ```
+2.  **Interact**: A window will open automatically (or go to `http://localhost:8000`).
+3.  **Configure**: Click the **Settings (⚙️)** button to enter your Gemini API Key.
+4.  **Process**:
+    - Drag & drop your **Audio** file.
+    - (Optional) Drag & drop your **Slides (PDF)**.
+    - Click **Start Processing**.
 
-2.  **Open your browser**:
-    The interface will open automatically at `http://localhost:8000`.
-    - Drag & drop your audio and PDF files.
-    - Select page ranges if needed.
-    - View progress in real-time.
-    - Open generated PDFs directly in the browser.
+### 💻 Option 2: Command Line Interface (CLI)
 
-### Option 2: Command Line Interface (CLI) 💻
+For automation or headless environments.
 
-For advanced users or automation, you can run the script directly from the terminal.
-
-#### Basic usage
+**Set your API Key first:**
 ```bash
-python AudioTTo.py path/to/audio_file.wav
+# Linux/macOS
+export GEMINI_API_KEY="your_api_key_here"
+
+# Windows (PowerShell)
+$env:GEMINI_API_KEY="your_api_key_here"
 ```
 
-#### With slides
+**Run the script:**
 ```bash
-python AudioTTo.py path/to/audio_file.wav --slides path/to/slides.pdf
+# Basic transcription
+python AudioTTo.py lecture.wav
+
+# With slides
+python AudioTTo.py lecture.wav --slides slides.pdf
+
+# With specific slide pages
+python AudioTTo.py lecture.wav --slides slides.pdf --pages 1-15
 ```
 
-#### With slide page range
-```bash
-python AudioTTo.py path/to/audio_file.wav --slides slides.pdf --pages 3-12
-```
-
-#### Optional arguments
-
-| Argument    | Description                                           | Default value          |
-|-------------|-------------------------------------------------------|------------------------|
-| `--slides`  | Path to a **PDF file** containing lecture slides      | None                   |
-| `--pages`   | Page range from the slides to include (e.g. `"5-12"`) | Entire PDF             |
-| `--threads` | Number of parallel CPU cores used for transcription   | `4` or `cpu_count()-1` |
-
 ---
 
-## 🧠 How it works
+## 📂 Output Structure
 
-1. **Noise reduction** — Cleans the audio using `noisereduce`
-2. **Chunking** — Splits audio into 10-minute chunks for parallel processing
-3. **Parallel transcription** — Uses all available CPU cores via multiprocessing
-4. **Slide processing (optional)** — Converts PDF pages into images using PyMuPDF
-5. **LaTeX generation** — Sends transcript + slides (if any) to Gemini AI for document creation
-6. **PDF compilation** — Automatically compiles `.tex` twice with `pdflatex` for a polished output
-7. **Cleanup** — Removes all intermediate `.wav`, `.aux`, `.log`, etc., keeping only:
-   - `*_trascrizione.txt`
-   - `*_appunti.tex`
-   - `*_appunti.pdf`
-
----
-
-## 📁 Output structure
-
-After execution, results are saved under:
+All generated files are organized in the `output/` directory:
 
 ```
-output/<audio_file_name>/
-├── audiofile_clean.wav
-├── chunk_0.wav
-├── chunk_1.wav
-├── audiofile_trascrizione.txt
-├── audiofile_appunti.tex
-└── audiofile_appunti.pdf
+output/
+└── [Audio_Filename]/
+    ├── [Audio_Filename]_trascrizione.txt  # Raw text transcript
+    ├── [Audio_Filename]_appunti.tex       # Generated LaTeX source
+    └── [Audio_Filename]_appunti.pdf       # Final compiled PDF
 ```
 
-At the end, only the `.txt`, `.tex`, and `.pdf` files remain.
+> 🧹 Intermediate files (chunks, noisy audio, logs) are automatically cleaned up.
 
 ---
 
-## ⚙️ Internal workflow
+## 🤝 Contributing
 
-| Stage                                | Description                                               |
-|--------------------------------------|-----------------------------------------------------------|
-| `denoise_audio()`                    | Reduces background noise from the input audio             |
-| `split_audio()`                      | Splits audio into time-based segments                     |
-| `transcribe_chunks_local_parallel()` | Transcribes chunks in parallel using Faster-Whisper       |
-| `process_slides()`                   | Converts PDF slides into images for Gemini                |
-| `generate_latex_document()`           | Generates LaTeX code with Gemini (slides + transcription) |
-| `compile_pdf()`                      | Compiles `.tex` to `.pdf` twice                           |
-| `cleanup_output()`                   | Cleans intermediate files from the output directory       |
+Contributions are welcome! Feel free to open issues or submit pull requests to improve AudioTTo.
+
+## 📄 License
+
+This project is licensed under the **MIT License**.
 
 ---
 
-## ⚠️ Common errors and fixes
-
-| Error message              | Cause / Fix                                                                  |
-|----------------------------|----------------------------------------------------------------------------|
-| `pdflatex not found`       | Install a LaTeX distribution (`TeX Live`, `MikTeX`, or `MacTeX`)           |
-| `Gemini API key not found` | Export your Gemini key via `export GEMINI_API_KEY="..."`                   |
-| `PDF compilation error`    | Check the `.log` file in the output folder                                 |
-| `slides not found or invalid` | Ensure the path to the PDF slides is correct                           |
-| `Permission denied` (on Windows) | Wait a few seconds — Windows may still hold file locks after multiprocessing |
-
----
-
-## 💡 Tips
-
-- Use **clean and high-quality audio** for best results
-- Avoid filenames with **spaces or special characters** (prefer `_` or `-`)
-- You can skip slide processing by omitting `--slides`
-- If you only want the transcript, comment out the LaTeX/PDF generation part
-- On **Windows**, if cleanup fails, try running with admin rights or add a short delay in cleanup
-
----
-
-## 📜 License
-
-Released under the **MIT License** — you are free to use, modify, and distribute the software, as long as you **include proper attribution** to the original author.
-
----
-
-## ✨ Author
-
-**AudioTTo** — developed by *Manumarzo*
+<p align="center">
+  Developed with ❤️ by <b>Manumarzo</b>
+</p>

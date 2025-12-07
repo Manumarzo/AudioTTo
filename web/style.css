@@ -489,10 +489,46 @@ h1 {
 .api-key-wrapper {
     display: flex;
     gap: 0.5rem;
+    position: relative;
+    /* Added for absolute positioning of icon */
+    align-items: center;
 }
 
 .api-key-wrapper input {
     width: 100%;
+    padding-right: 40px;
+    /* Space for the eye icon */
+}
+
+/* Hide default reveal button in Edge/IE */
+.api-key-wrapper input::-ms-reveal,
+.api-key-wrapper input::-ms-clear {
+    display: none;
+}
+
+.icon-toggle-btn {
+    position: absolute;
+    right: 10px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #94a3b8;
+    /* Lighter color as requested */
+    display: none;
+    /* Hidden by default */
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    transition: color 0.2s;
+}
+
+.icon-toggle-btn.visible {
+    display: flex;
+    /* Show when active */
+}
+
+.icon-toggle-btn:hover {
+    color: var(--text-primary);
 }
 
 .key-status {
