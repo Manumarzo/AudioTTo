@@ -97,13 +97,10 @@ The easiest way to use AudioTTo.
 For automation or headless environments.
 
 **Set your API Key first:**
-```bash
-# Linux/macOS
-export GEMINI_API_KEY="your_api_key_here"
-
-# Windows (PowerShell)
-$env:GEMINI_API_KEY="your_api_key_here"
-```
+Create a file named `.env` in the root directory of the project. Open it with a text editor and add your API Key:
+    ```env
+    GEMINI_API_KEY=your_actual_api_key_here
+    ```
 
 **Run the script:**
 ```bash
