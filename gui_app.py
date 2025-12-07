@@ -218,7 +218,7 @@ if __name__ == "__main__":
     # 2. Crea la finestra desktop "nativa"
     # width e height sono le dimensioni iniziali
     webview.create_window(
-        title='AudioTTo - Generatore Appunti', 
+        title='AudioTTo - Notes generator', 
         url='http://127.0.0.1:8000',
         width=1000,
         height=800,

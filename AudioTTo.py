@@ -22,10 +22,21 @@ from dotenv import load_dotenv
 import fitz  # PyMuPDF for PDF slide extraction
 import PIL.Image
 
-# Force UTF-8 encoding on Windows
+# Force UTF-8 encoding on Windows (Only if console exists)
 if sys.platform == "win32":
-    sys.stdout.reconfigure(encoding='utf-8')
-    sys.stderr.reconfigure(encoding='utf-8')
+    # Controlliamo se stdout esiste prima di toccarlo
+    if sys.stdout is not None:
+        try:
+            sys.stdout.reconfigure(encoding='utf-8')
+        except AttributeError:
+            pass # Ignora se non supportato
+
+    # Controlliamo se stderr esiste prima di toccarlo
+    if sys.stderr is not None:
+        try:
+            sys.stderr.reconfigure(encoding='utf-8')
+        except AttributeError:
+            pass # Ignora se non supportato
 
 warnings.filterwarnings("ignore", category=UserWarning, module='ctranslate2')
 
