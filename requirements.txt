@@ -1,6 +1,3 @@
-librosa
-soundfile
-noisereduce
 pydub
 imageio-ffmpeg
 faster-whisper

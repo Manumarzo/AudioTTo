@@ -225,7 +225,11 @@ if __name__ == "__main__":
         resizable=True
     )
 
-    # 3. Avvia la GUI (Questo blocco ferma l'esecuzione finché non chiudi la finestra)
-    webview.start()
+    # 3. Avvia la GUI
+    try:
+        webview.start()
+    except KeyboardInterrupt:
+        print("\n🛑 Application stopped by user.")
+        sys.exit(0)
 
 # --- FINE NUOVO BLOCCO ---

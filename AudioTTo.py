@@ -9,9 +9,6 @@ import os
 import sys
 import subprocess
 import argparse
-import librosa
-import soundfile as sf
-import noisereduce as nr
 from pydub import AudioSegment
 import imageio_ffmpeg as ffmpeg
 from faster_whisper import WhisperModel
@@ -106,14 +103,7 @@ def create_output_folder(audio_path: str) -> str:
     return output_dir
 
 
-def denoise_audio(input_path: str, output_dir: str) -> str:
-    print("🔊 Performing noise reduction...")
-    y, sr = librosa.load(input_path, sr=None)
-    y_denoised = nr.reduce_noise(y=y, sr=sr)
-    clean_path = os.path.join(output_dir, f"{os.path.splitext(os.path.basename(input_path))[0]}_clean.wav")
-    sf.write(clean_path, y_denoised, sr)
-    print("✔️ Noise reduced.")
-    return clean_path
+
 
 
 def split_audio(audio_path: str, chunk_len_ms: int, output_dir: str) -> list:
@@ -170,6 +160,7 @@ You are an expert assistant that creates complete, clear, academic LaTeX lesson 
 IMPORTANT RULES:
 - The output MUST start with `\\documentclass{{article}}` and MUST end with `\\end{{document}}`.
 - DO NOT include explanations, comments, markdown code blocks, or introductory text.
+- DO NOT include an abstract section.
 - You must write the entire document in the SAME LANGUAGE as the transcription. The detected language is: {audio_lang}.
 - Use only standard LaTeX packages: geometry, amsmath, graphicx, helvet, inputenc (utf8).
 - Reformulate sentences to be clear, well-organized, and academic.
@@ -275,11 +266,12 @@ def main(args_list=None):
         slides_images = process_slides(args.slides, args.pages)
 
         # 2. Pulizia Audio (Denoising)
-        clean_audio = denoise_audio(args.file_audio, output_dir)
-        temp_files.append(clean_audio)
+        # 2. (Skipped) Pulizia Audio (Denoising rimosso come richiesto)
+        # clean_audio = denoise_audio(args.file_audio, output_dir)
+        # temp_files.append(clean_audio)
 
         # 3. Splitting Audio in chunk
-        chunks = split_audio(clean_audio, CHUNK_LENGTH_MS_LOCAL, output_dir)
+        chunks = split_audio(args.file_audio, CHUNK_LENGTH_MS_LOCAL, output_dir)
         temp_files.extend(chunks)
 
         # 4. Trascrizione (Parallela se ci sono chunk multipli)
