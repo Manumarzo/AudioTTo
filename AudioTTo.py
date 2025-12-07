@@ -43,6 +43,19 @@ warnings.filterwarnings("ignore", category=UserWarning, module='ctranslate2')
 # Load environment variables
 load_dotenv()
 
+def add_ffmpeg_path():
+    """ Aggiunge il path dei binari ffmpeg compressi nel PATH di sistema se congelato """
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+        # Aggiungiamo il path corrente (dove si trovano ffmpeg.exe e ffprobe.exe estratti)
+        os.environ["PATH"] += os.pathsep + base_path
+        
+        # Opzionale: se pydub non lo trova automaticamente, potremmo forzarlo qui
+        # Ma di solito basta il PATH.
+
+# Eseguiamo subito
+add_ffmpeg_path()
+
 # ---------------- CONFIG ----------------
 MODEL_SIZE = "small"
 COMPUTE_TYPE = "int8"
