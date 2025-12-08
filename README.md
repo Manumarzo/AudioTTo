@@ -146,13 +146,6 @@ Contributions are welcome! Feel free to open issues or submit pull requests to i
      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Manumarzo/AudioTTo&type=Date" />
    </picture>
   </a>
-  <br>
-  <br>
-  <a href="https://hits.sh/github.com/Manumarzo/AudioTTo/">
-    <img src="https://hits.sh/github.com/Manumarzo/AudioTTo.svg?view=today-total&label=Total%20Views&color=0e75b6&style=for-the-badge&logo=github" alt="Hits"/>
-  </a>
-  <img src="https://api.visitorbadge.io/api/visitors?path=Manumarzo/AudioTTo&label=Unique%20Visitors&countColor=%230e75b6" alt="Unique Visitors"/>
-</p>
 </p>
 
 ## 📄 License
