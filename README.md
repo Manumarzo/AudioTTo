@@ -136,6 +136,29 @@ output/
 
 Contributions are welcome! Feel free to open issues or submit pull requests to improve AudioTTo.
 
+## 🌟 Star History and Activity Graph
+
+<table>
+  <tr>
+    <td width="50%">
+      <h3 align="center">Star History</h3>
+      <a href="https://star-history.com/#Manumarzo/AudioTTo&Date">
+       <picture>
+         <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Manumarzo/AudioTTo&type=Date&theme=dark" />
+         <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Manumarzo/AudioTTo&type=Date" />
+         <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Manumarzo/AudioTTo&type=Date" width="100%" />
+       </picture>
+      </a>
+    </td>
+    <td width="50%">
+      <h3 align="center">Activity Graph</h3>
+      <a href="https://github.com/ashutosh00710/github-readme-activity-graph">
+        <img src="https://github-readme-activity-graph.vercel.app/graph?username=Manumarzo&repo=AudioTTo&theme=react-dark&hide_border=true" alt="Activity Graph" width="100%" />
+      </a>
+    </td>
+  </tr>
+</table>
+
 ## 📄 License
 
 This project is licensed under the **MIT License**.
