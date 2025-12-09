@@ -152,6 +152,14 @@ Contributions are welcome! Feel free to open issues or submit pull requests to i
   </a>
 </p>
 
+## ☕ Support the Project
+
+If you find AudioTTo useful and want to support its development, consider making a small donation! Your support helps keep the project alive and improving.
+
+<p align="center">
+  <a href="https://www.paypal.com/paypalme/Emarzone"><img src="https://img.shields.io/badge/Donate-PayPal-blue.svg?logo=paypal&style=for-the-badge" alt="Donate with PayPal"></a>
+</p>
+
 ## 📄 License
 
 This project is licensed under the **MIT License**.
