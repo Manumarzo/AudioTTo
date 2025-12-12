@@ -39,6 +39,16 @@
 
 ---
 
+## 📸 App Screenshots
+
+<p align="center">
+  <img src="logo/home_audiotto.png" alt="Home Screen" width="48%" />
+  &nbsp;
+  <img src="logo/notes_audiotto.png" alt="Notes Generation" width="48%" />
+</p>
+
+---
+
 ## 🛠️ Prerequisites
 
 Before you begin, ensure you have the following:
