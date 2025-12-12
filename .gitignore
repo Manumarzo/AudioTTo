@@ -4,3 +4,4 @@ slides/
 .env
 temp_uploads/
 __pycache__/
+bin/
