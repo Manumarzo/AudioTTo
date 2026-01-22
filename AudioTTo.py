@@ -1,5 +1,42 @@
 import os
 import sys
+
+# --- FIX WINDOWS ENCODING (Allows Emoji without crashing) ---
+if sys.platform == "win32":
+    # Set environment variables for UTF-8 encoding
+    os.environ["PYTHONIOENCODING"] = "utf-8"
+    
+    # Reconfigure stdout and stderr to use UTF-8 instead of cp1252
+    if sys.stdout is not None:
+        try:
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        except (AttributeError, OSError):
+            try:
+                import codecs
+                sys.stdout = codecs.getwriter("utf-8")(sys.stdout.buffer if hasattr(sys.stdout, 'buffer') else sys.stdout, errors='replace')
+            except:
+                pass  # If all else fails, continue without reconfiguration
+
+    if sys.stderr is not None:
+        try:
+            sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+        except (AttributeError, OSError):
+            try:
+                import codecs
+                sys.stderr = codecs.getwriter("utf-8")(sys.stderr.buffer if hasattr(sys.stderr, 'buffer') else sys.stderr, errors='replace')
+            except:
+                pass  # If all else fails, continue without reconfiguration
+
+# Safe print function that handles encoding errors
+def safe_print(text):
+    """Print text with automatic encoding error handling"""
+    try:
+        print(text)
+    except UnicodeEncodeError:
+        # Fallback: print with ASCII-compatible characters only
+        print(text.encode('ascii', errors='replace').decode('ascii'))
+# ------------------------------------------------------------
+
 import subprocess
 import argparse
 from pydub import AudioSegment
@@ -52,7 +89,7 @@ def configure_ffmpeg():
         # Aggiungi al PATH di sistema per subprocess calls dirette
         os.environ["PATH"] += os.pathsep + os.path.dirname(ffmpeg_path)
     else:
-        print("⚠️ Warning: FFmpeg binaries not found in bundle. Using system default.")
+        safe_print("⚠️ Warning: FFmpeg binaries not found in bundle. Using system default.")
 
 # Logger Setup
 logger_callback = None
@@ -80,15 +117,6 @@ class ProgressLogger:
     def flush(self):
         if not logger_callback:
             sys.stderr.flush()
-
-# Force UTF-8 encoding on Windows
-if sys.platform == "win32":
-    if sys.stdout is not None:
-        try: sys.stdout.reconfigure(encoding='utf-8')
-        except AttributeError: pass
-    if sys.stderr is not None:
-        try: sys.stderr.reconfigure(encoding='utf-8')
-        except AttributeError: pass
 
 warnings.filterwarnings("ignore", category=UserWarning, module='ctranslate2')
 

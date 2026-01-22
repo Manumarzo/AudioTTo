@@ -3,20 +3,38 @@ import sys
 
 # --- FIX WINDOWS ENCODING (Allows Emoji without crashing) ---
 if sys.platform == "win32":
+    # Set environment variables for UTF-8 encoding
+    os.environ["PYTHONIOENCODING"] = "utf-8"
+    
     # Reconfigure stdout and stderr to use UTF-8 instead of cp1252
     if sys.stdout is not None:
         try:
-            sys.stdout.reconfigure(encoding='utf-8')
-        except AttributeError:
-            import codecs
-            sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        except (AttributeError, OSError):
+            try:
+                import codecs
+                sys.stdout = codecs.getwriter("utf-8")(sys.stdout.buffer if hasattr(sys.stdout, 'buffer') else sys.stdout, errors='replace')
+            except:
+                pass  # If all else fails, continue without reconfiguration
 
     if sys.stderr is not None:
         try:
-            sys.stderr.reconfigure(encoding='utf-8')
-        except AttributeError:
-            import codecs
-            sys.stderr = codecs.getwriter("utf-8")(sys.stderr.detach())
+            sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+        except (AttributeError, OSError):
+            try:
+                import codecs
+                sys.stderr = codecs.getwriter("utf-8")(sys.stderr.buffer if hasattr(sys.stderr, 'buffer') else sys.stderr, errors='replace')
+            except:
+                pass  # If all else fails, continue without reconfiguration
+
+# Safe print function that handles encoding errors
+def safe_print(text):
+    """Print text with automatic encoding error handling"""
+    try:
+        print(text)
+    except UnicodeEncodeError:
+        # Fallback: print with ASCII-compatible characters only
+        print(text.encode('ascii', errors='replace').decode('ascii'))
 # ------------------------------------------------------------
 
 import shutil
@@ -228,7 +246,7 @@ async def websocket_endpoint(websocket: WebSocket):
 # ...
 
     except WebSocketDisconnect:
-        print("Client disconnected")
+        safe_print("Client disconnected")
     except Exception as e:
         await websocket.send_text(f"❌ Internal error: {str(e)}")
     finally:
@@ -308,14 +326,45 @@ if __name__ == "__main__":
     # 3. Avvia la GUI
     try:
         webview.start()
+    except RuntimeError as e:
+        # Handle pythonnet/winforms initialization errors
+        error_msg = str(e)
+        if "Python.Runtime.Loader.Initialize" in error_msg or "pythonnet" in error_msg.lower():
+            safe_print("\n" + "="*60)
+            safe_print("❌ ERROR: Failed to initialize GUI window")
+            safe_print("="*60)
+            safe_print("\nThis appears to be a compatibility issue with the GUI library.")
+            safe_print("\nPossible solutions:")
+            safe_print("  1. Try running as Administrator")
+            safe_print("  2. Install .NET Framework 4.7.2 or later")
+            safe_print("  3. Update Windows to the latest version")
+            safe_print("\nFor now, you can use the web interface instead:")
+            safe_print("  - The server is running at: http://127.0.0.1:8000")
+            safe_print("  - Open this URL in your browser manually")
+            safe_print("\nPress Ctrl+C to exit when done.")
+            safe_print("="*60 + "\n")
+            
+            # Keep server alive for manual access
+            try:
+                import time
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                pass
+        else:
+            # Re-raise if it's a different error
+            raise
     except KeyboardInterrupt:
-        print("\n🛑 Application stopped by user.")
+        safe_print("\n🛑 Application stopped by user.")
         sys.exit(0)
+    except Exception as e:
+        safe_print(f"\n❌ Unexpected error: {e}")
+        raise
     finally:
         # Cleanup temp_uploads on exit
         if os.path.exists("temp_uploads"):
             try:
                 shutil.rmtree("temp_uploads")
-                print("🧹 Cleaned up temp_uploads folder.")
+                safe_print("🧹 Cleaned up temp_uploads folder.")
             except Exception as e:
-                print(f"⚠️ Error cleaning up temp_uploads: {e}")
+                safe_print(f"⚠️ Error cleaning up temp_uploads: {e}")
