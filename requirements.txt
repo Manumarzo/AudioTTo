@@ -1,5 +1,4 @@
 pydub
-imageio-ffmpeg
 faster-whisper
 google-genai
 setuptools
@@ -8,6 +7,12 @@ python-dotenv
 fastapi
 uvicorn
 python-multipart
-pywebview
 pydantic
 tqdm
+pywebview
+requests
+packaging
+filelock
+huggingface-hub
+regex
+numpy

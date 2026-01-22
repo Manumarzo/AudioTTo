@@ -3,7 +3,7 @@ import sys
 import subprocess
 import argparse
 from pydub import AudioSegment
-import imageio_ffmpeg as ffmpeg
+# import imageio_ffmpeg as ffmpeg  <-- RIMOSSO: Usiamo il binario locale
 from faster_whisper import WhisperModel
 import google.genai as genai
 from google.genai import types
@@ -11,101 +11,103 @@ import multiprocessing
 import warnings
 import time
 from typing import List
-
 from dotenv import load_dotenv
 import threading
 from tqdm import tqdm
+import fitz 
+
+# --- CONFIGURAZIONE PATH E BINARI ---
+
+def resource_path(relative_path):
+    """ Ottiene il percorso assoluto delle risorse, funzionante sia in Dev che in EXE (PyInstaller) """
+    if hasattr(sys, '_MEIPASS'):
+        # PyInstaller crea una cartella temporanea in _MEIPASS
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
+def configure_ffmpeg():
+    """ Configura pydub per usare ffmpeg incluso nel pacchetto """
+    
+    # Determina i nomi dei file in base all'OS
+    if sys.platform == "win32":
+        ffmpeg_name = "ffmpeg.exe"
+        ffprobe_name = "ffprobe.exe"
+    else:
+        ffmpeg_name = "ffmpeg"
+        ffprobe_name = "ffprobe"
+
+    # PyInstaller con il nostro spec mette i file nella root o in bin/ (dipende dal dest in spec)
+    # Nel build.spec abbiamo messo destination='.', quindi sono nella root di _MEIPASS
+    ffmpeg_path = resource_path(ffmpeg_name)
+    ffprobe_path = resource_path(ffprobe_name)
+
+    # Fallback: Se non siamo in EXE e i file non sono nella root, cerchiamo in bin/ (per sviluppo)
+    if not os.path.exists(ffmpeg_path):
+        ffmpeg_path = resource_path(os.path.join("bin", ffmpeg_name))
+        ffprobe_path = resource_path(os.path.join("bin", ffprobe_name))
+
+    # Configura Pydub
+    if os.path.exists(ffmpeg_path):
+        AudioSegment.converter = ffmpeg_path
+        AudioSegment.ffprobe = ffprobe_path
+        # Aggiungi al PATH di sistema per subprocess calls dirette
+        os.environ["PATH"] += os.pathsep + os.path.dirname(ffmpeg_path)
+    else:
+        print("⚠️ Warning: FFmpeg binaries not found in bundle. Using system default.")
 
 # Logger Setup
 logger_callback = None
 progress_queue = None
 
 def set_logger(callback):
-    """ Imposta una funzione di callback per i log (es. per inviarli via WebSocket) """
     global logger_callback
     logger_callback = callback
 
 def log(*args, **kwargs):
-    """
-    Funzione helper per stampare.
-    Se c'è un logger_callback, invia il messaggio lì.
-    Altrimenti usa print.
-    """
     msg = " ".join(map(str, args))
     if logger_callback:
         logger_callback(msg)
     else:
-        # Usa flush=True di default per vedere subito l'output
         print(msg, flush=True, **kwargs)
 
 class ProgressLogger:
-    """
-    File-like object per reindirizzare l'output di tqdm
-    verso il logger_callback se presente.
-    """
     def write(self, buf):
-        # tqdm invia stringhe con \r per aggiornare la riga.
-        # Se abbiamo un callback, glielo passiamo raw.
-        # Il frontend JS dovrà gestire il carriage return.
-        if buf.strip(): # Ignora righe vuote se necessario, ma tqdm usa \r
+        if buf.strip():
             if logger_callback:
                 logger_callback(buf)
             else:
-               sys.stderr.write(buf)
-               sys.stderr.flush()
-
+                sys.stderr.write(buf)
+                sys.stderr.flush()
     def flush(self):
         if not logger_callback:
             sys.stderr.flush()
 
-import fitz  # PyMuPDF for PDF manipulation
-# import PIL.Image  # Removed as we upload PDF directly now
-
-# Force UTF-8 encoding on Windows (Only if console exists)
+# Force UTF-8 encoding on Windows
 if sys.platform == "win32":
-    # Controlliamo se stdout esiste prima di toccarlo
     if sys.stdout is not None:
-        try:
-            sys.stdout.reconfigure(encoding='utf-8')
-        except AttributeError:
-            pass # Ignora se non supportato
-
-    # Controlliamo se stderr esiste prima di toccarlo
+        try: sys.stdout.reconfigure(encoding='utf-8')
+        except AttributeError: pass
     if sys.stderr is not None:
-        try:
-            sys.stderr.reconfigure(encoding='utf-8')
-        except AttributeError:
-            pass # Ignora se non supportato
+        try: sys.stderr.reconfigure(encoding='utf-8')
+        except AttributeError: pass
 
 warnings.filterwarnings("ignore", category=UserWarning, module='ctranslate2')
 
 # Load environment variables
 load_dotenv()
 
-def add_ffmpeg_path():
-    """ Aggiunge il path dei binari ffmpeg compressi nel PATH di sistema se congelato """
-    if getattr(sys, 'frozen', False):
-        base_path = sys._MEIPASS
-        # Aggiungiamo il path corrente (dove si trovano ffmpeg.exe e ffprobe.exe estratti)
-        os.environ["PATH"] += os.pathsep + base_path
-        
-        # Opzionale: se pydub non lo trova automaticamente, potremmo forzarlo qui
-        # Ma di solito basta il PATH.
-
-# Eseguiamo subito
-add_ffmpeg_path()
+# --- ESEGUIAMO LA CONFIGURAZIONE ---
+configure_ffmpeg() 
 
 # ---------------- CONFIG ----------------
 MODEL_SIZE = "small"
 COMPUTE_TYPE = "int8"
-LANGUAGE = None  # Auto-detect language
+LANGUAGE = None  
 N_THREADS = 4
 CHUNK_LENGTH_MS_LOCAL = 10 * 60 * 1000
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 model = "gemini-3-flash-preview"
-AudioSegment.converter = ffmpeg.get_ffmpeg_exe()
 model_worker = None
-
 
 def init_worker(queue=None):
     global model_worker, progress_queue
@@ -355,7 +357,7 @@ def generate_latex_document(text: str, title: str, slides_path: str, audio_lang:
 You are an expert assistant that creates complete, clear, academic LaTeX lesson notes.
 
 IMPORTANT RULES:
-- The output MUST start with `\\documentclass{{article}}` and MUST end with `\\end{{document}}`.
+- The output MUST start with `\\documentclass[12pt]{{article}}` and MUST end with `\\end{{document}}`.
 - DO NOT include explanations, comments, markdown code blocks, or introductory text.
 - DO NOT include an abstract section.
 - You must write the entire document in the SAME LANGUAGE as the transcription. The detected language is: {audio_lang}.

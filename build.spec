@@ -1,20 +1,38 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all, copy_metadata
+import sys
+import os
 
 block_cipher = None
+
+# --- OS Detection for Binaries ---
+# Define binary names based on the system
+if sys.platform == 'win32':
+    ffmpeg_bin = 'ffmpeg.exe'
+    ffprobe_bin = 'ffprobe.exe'
+else:
+    # Linux and macOS do not have the .exe extension
+    ffmpeg_bin = 'ffmpeg'
+    ffprobe_bin = 'ffprobe'
+
+# local path where GitHub Action will download the files
+bin_path = 'bin'
 
 # --- Data Configuration ---
 datas = [
     ('web', 'web'),        # web UI directory
     ('logo', 'logo'),      # logo directory
 ]
+
+# Binaries configuration dynamic
 binaries = [
-    ('bin/ffmpeg.exe', '.'), # need exe downloaded and placed in bin/
-    ('bin/ffprobe.exe', '.')
+    (os.path.join(bin_path, ffmpeg_bin), '.'), 
+    (os.path.join(bin_path, ffprobe_bin), '.')
 ]
 
-# Import necessari
+# --- Imports Configuration ---
 hiddenimports = [
+    # Server & API
     'uvicorn.logging',
     'uvicorn.loops',
     'uvicorn.loops.auto',
@@ -26,8 +44,17 @@ hiddenimports = [
     'uvicorn.protocols.websockets.auto',
     'uvicorn.lifespan',
     'uvicorn.lifespan.on',
-    'engineio.async_drivers.threading',
+    'fastapi',
+    'starlette',
+    'pydantic',
+    
+    # Utilities
     'python_multipart',
+    'dotenv',          # Per python-dotenv
+    'fitz',            # Per PyMuPDF
+    'webview',         # Per pywebview
+    
+    # AI & Audio
     'faster_whisper'
 ]
 
@@ -45,8 +72,10 @@ packages_to_copy = [
     'packaging', 
     'filelock', 
     'huggingface_hub', 
-    'google.generativeai',
-    'numpy'
+    'google.generativeai', # Corrisponde a google-genai
+    'numpy',
+    'uvicorn',
+    'fastapi' # A volte serve copiare i metadati anche di fastapi
 ]
 
 for package in packages_to_copy:
