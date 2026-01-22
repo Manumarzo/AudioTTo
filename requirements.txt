@@ -1,10 +1,10 @@
 pydub
 imageio-ffmpeg
 faster-whisper
-google-generativeai
+google-genai
 setuptools
 PyMuPDF
-Pillow
+
 python-dotenv
 fastapi
 uvicorn

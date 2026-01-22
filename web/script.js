@@ -156,21 +156,137 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- Threads Configuration Logic ---
+    const threadConfigBtn = document.getElementById('thread-config-btn');
+    const threadsModal = document.getElementById('threads-modal');
+    const closeThreadsBtn = document.getElementById('close-threads-btn');
+    const saveThreadsBtn = document.getElementById('save-threads-btn');
+    const threadsSlider = document.getElementById('threads-slider');
+    const threadsDisplay = document.getElementById('threads-value-display');
+    const maxCpuDisplay = document.getElementById('max-cpu-display');
+
+    let currentThreads = 4;
+
+    function openThreadsModal() {
+        threadsModal.classList.remove('hidden');
+    }
+
+    function closeThreadsModal() {
+        threadsModal.classList.add('hidden');
+    }
+
+    if (threadConfigBtn) threadConfigBtn.addEventListener('click', openThreadsModal);
+    if (closeThreadsBtn) closeThreadsBtn.addEventListener('click', closeThreadsModal);
+
+    // Close threads modal when clicking outside
+    let threadsModalMouseDownTarget = null;
+    if (threadsModal) {
+        threadsModal.addEventListener('mousedown', (e) => {
+            threadsModalMouseDownTarget = e.target;
+        });
+        threadsModal.addEventListener('mouseup', (e) => {
+            if (e.target === threadsModal && threadsModalMouseDownTarget === threadsModal) {
+                closeThreadsModal();
+            }
+            threadsModalMouseDownTarget = null;
+        });
+    }
+
+    threadsSlider.addEventListener('input', () => {
+        threadsDisplay.textContent = threadsSlider.value;
+    });
+
+    saveThreadsBtn.addEventListener('click', async () => {
+        const val = parseInt(threadsSlider.value);
+        saveThreadsBtn.disabled = true;
+        saveThreadsBtn.textContent = 'Saving...';
+
+        try {
+            const res = await fetch('/api/save-threads', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ threads: val })
+            });
+            if (res.ok) {
+                currentThreads = val;
+                showToast(`Threads set to ${val}`, 'success');
+                closeThreadsModal();
+            } else {
+                showToast('Error saving configuration', 'error');
+            }
+        } catch (e) {
+            console.error(e);
+            showToast('Error saving configuration', 'error');
+        } finally {
+            saveThreadsBtn.disabled = false;
+            saveThreadsBtn.textContent = 'Save';
+        }
+    });
+
+    async function initThreadsInfo() {
+        try {
+            const res = await fetch('/api/info');
+            const data = await res.json();
+
+            const cpuCount = data.cpu_count || 4;
+            const saved = data.saved_threads || 4;
+
+            // Set Max (leave at least 1 core free if possible, but allow using all if user wants or if low core count)
+            // Strategy: Max = cpuCount - 1 (min 1)
+            let maxThreads = Math.max(1, cpuCount - 1);
+            // If user has very few cores (e.g. 2), maybe allow using all? Let's stick to n-1 for safety unless n=1.
+            if (cpuCount <= 1) maxThreads = 1;
+
+            threadsSlider.max = maxThreads;
+            threadsSlider.value = Math.min(saved, maxThreads);
+
+            maxCpuDisplay.textContent = maxThreads;
+            threadsDisplay.textContent = threadsSlider.value;
+            currentThreads = parseInt(threadsSlider.value);
+
+        } catch (e) {
+            console.error("Failed to fetch app info:", e);
+        }
+    }
+
+    // Call init
+    initThreadsInfo();
+
+    // --- Drag & Drop Logic ---
+    // --- Global Drag & Drop Prevention ---
+    // Prevent default behavior (opening file) for dropping outside zones
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
     // --- Drag & Drop Logic ---
     function setupDragDrop(zone, input, fileType, callback) {
         zone.addEventListener('click', () => input.click());
         input.addEventListener('change', (e) => handleFiles(e.target.files, fileType, callback));
 
-        zone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            zone.classList.add('dragover');
+        // Highlight drop zone
+        ['dragenter', 'dragover'].forEach(eventName => {
+            zone.addEventListener(eventName, (e) => {
+                zone.classList.add('dragover');
+                // Explicitly show that a copy action is allowed (helps on some OSs)
+                if (e.dataTransfer) {
+                    e.dataTransfer.dropEffect = 'copy';
+                }
+            }, false);
         });
 
-        zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+        ['dragleave', 'drop'].forEach(eventName => {
+            zone.addEventListener(eventName, () => {
+                zone.classList.remove('dragover');
+            }, false);
+        });
 
         zone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            zone.classList.remove('dragover');
             handleFiles(e.dataTransfer.files, fileType, callback);
         });
     }
@@ -178,15 +294,30 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleFiles(files, type, callback) {
         if (files.length > 0) {
             const file = files[0];
-            if (type === 'audio' && !file.type.startsWith('audio/')) {
-                showToast('Please upload a valid audio file.', 'error');
-                return;
+            const fileName = file.name.toLowerCase();
+
+            // Validation Logic with Extension Fallback
+            let isValid = false;
+
+            if (type === 'audio') {
+                // Check MIME type OR extension
+                const allowedExtensions = ['.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.wma'];
+                if (file.type.startsWith('audio/') || allowedExtensions.some(ext => fileName.endsWith(ext))) {
+                    isValid = true;
+                } else {
+                    showToast('Please upload a valid audio file (mp3, wav, m4a, ...).', 'error');
+                }
+            } else if (type === 'pdf') {
+                if (file.type === 'application/pdf' || fileName.endsWith('.pdf')) {
+                    isValid = true;
+                } else {
+                    showToast('Please upload a valid PDF file.', 'error');
+                }
             }
-            if (type === 'pdf' && file.type !== 'application/pdf') {
-                showToast('Please upload a valid PDF file.', 'error');
-                return;
+
+            if (isValid) {
+                callback(file);
             }
-            callback(file);
         }
     }
 
@@ -266,7 +397,8 @@ document.addEventListener('DOMContentLoaded', () => {
             ws.send(JSON.stringify({
                 audio_filename: audioName,
                 slides_filename: pdfName,
-                pages: pages
+                pages: pages,
+                threads: currentThreads
             }));
         };
 

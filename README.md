@@ -53,7 +53,7 @@
 
 Before you begin, ensure you have the following:
 
-- **Python 3.9** or higher.
+- **Python 3.12 (recommended)** or higher.
 - A **LaTeX Distribution** installed and added to your PATH (required for PDF compilation):
     - Windows: [MiKTeX](https://miktex.org/) or [TeX Live](https://www.tug.org/texlive/)
     - macOS: [MacTeX](https://www.tug.org/mactex/)

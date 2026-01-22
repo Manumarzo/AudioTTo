@@ -109,36 +109,59 @@ async def set_api_key(request: ApiKeyRequest):
     os.environ["GEMINI_API_KEY"] = key
     return {"message": "API Key updated successfully"}
 
-# --- GESTIONE ESECUZIONE AUDIOTTO IN THREAD ---
-class OutputCapture(object):
-    """ Classe per catturare stdout e inviarlo al WebSocket """
-    def __init__(self, loop, websocket):
-        self.loop = loop
-        self.websocket = websocket
+# ... imports
+import multiprocessing  # Added for CPU count
 
-    def write(self, data):
-        if data.strip():
-            # Invia il log al websocket in modo thread-safe
-            asyncio.run_coroutine_threadsafe(self.websocket.send_text(data.strip()), self.loop)
+# ... (existing imports)
 
-    def flush(self):
-        pass
+class ThreadConfig(BaseModel):
+    threads: int
 
-def run_audiotto_wrapper(args, loop, websocket):
-    """ Esegue AudioTTo catturando l'output """
+@app.get("/api/info")
+async def get_app_info():
+    load_dotenv(override=True)
+    cpu_count = multiprocessing.cpu_count()
+    saved_threads = os.getenv("THREADS")
+    # Default to 4 if not set, or clamp to 1..(cpu-1) if set
+    default_threads = 4
+    if saved_threads and saved_threads.isdigit():
+        default_threads = int(saved_threads)
     
-    # 🔹 SYNC: Aggiorniamo la variabile globale del modulo AudioTTo con la chiave corrente
-    current_key = os.getenv("GEMINI_API_KEY")
-    if current_key:
-        AudioTTo.GEMINI_API_KEY = current_key
+    return {
+        "cpu_count": cpu_count,
+        "saved_threads": default_threads
+    }
 
-    capture = OutputCapture(loop, websocket)
-    # Redirige stdout e stderr verso il websocket
-    with redirect_stdout(capture), redirect_stderr(capture):
-        try:
-            AudioTTo.main(args)
-        except Exception as e:
-            print(f"❌ Critical Error: {e}")
+@app.post("/api/save-threads")
+async def save_threads_config(config: ThreadConfig):
+    threads = config.threads
+    env_path = ".env"
+    lines = []
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+    
+    key_found = False
+    new_lines = []
+    for line in lines:
+        if line.startswith("THREADS="):
+            new_lines.append(f"THREADS={threads}\n")
+            key_found = True
+        else:
+            new_lines.append(line)
+    
+    if not key_found:
+        if new_lines and not new_lines[-1].endswith("\n"):
+            new_lines.append("\n")
+        new_lines.append(f"THREADS={threads}\n")
+    
+    with open(env_path, "w", encoding="utf-8") as f:
+        f.writelines(new_lines)
+    
+    os.environ["THREADS"] = str(threads)
+    return {"message": "Thread config saved successfully"}
+
+# ... (existing endpoints)
 
 @app.websocket("/ws/process")
 async def websocket_endpoint(websocket: WebSocket):
@@ -148,13 +171,14 @@ async def websocket_endpoint(websocket: WebSocket):
         audio_filename = data.get("audio_filename")
         slides_filename = data.get("slides_filename")
         pages = data.get("pages")
+        threads = data.get("threads") # Read threads from request if present
         
         if not audio_filename:
             await websocket.send_text("❌ Error: No audio file specified.")
             await websocket.close()
             return
         
-        # 🔹 CONTROLLO API KEY: Se non c'è la chiave, blocchiamo tutto subito
+        # 🔹 CONTROLLO API KEY
         qa_key = os.getenv("GEMINI_API_KEY")
         if not qa_key or not qa_key.strip():
              await websocket.send_text("❌ Error: API Key missing! Please set it in the Settings tab.")
@@ -169,8 +193,12 @@ async def websocket_endpoint(websocket: WebSocket):
             cmd_args.extend(["--slides", os.path.join("temp_uploads", slides_filename)])
         if pages:
             cmd_args.extend(["--pages", pages])
+            
+        # Add threads argument
+        if threads:
+            cmd_args.extend(["--threads", str(threads)])
 
-        await websocket.send_text(f"🚀 Starting processing...")
+        await websocket.send_text(f"🚀 Starting processing (Threads: {threads})...")
 
         # Eseguiamo in un thread separato per non bloccare il server
         loop = asyncio.get_event_loop()
@@ -178,6 +206,7 @@ async def websocket_endpoint(websocket: WebSocket):
         
         await websocket.send_text("✅ Process completed check log above.")
         await websocket.send_text("REFRESH_OUTPUTS")
+# ...
 
     except WebSocketDisconnect:
         print("Client disconnected")

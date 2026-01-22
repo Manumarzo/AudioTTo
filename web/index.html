@@ -55,8 +55,27 @@
             <div class="settings-section">
                 <div class="input-group">
                     <label for="pages-input">Slide Pages (e.g., 1-5)</label>
-                    <input type="text" id="pages-input" placeholder="All">
+                    <input type="text" id="pages-input" placeholder="All" disabled>
                 </div>
+
+                <button id="thread-config-btn" class="icon-btn" title="CPU Threads">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="feather feather-cpu">
+                        <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+                        <rect x="9" y="9" width="6" height="6"></rect>
+                        <line x1="9" y1="1" x2="9" y2="4"></line>
+                        <line x1="15" y1="1" x2="15" y2="4"></line>
+                        <line x1="9" y1="20" x2="9" y2="23"></line>
+                        <line x1="15" y1="20" x2="15" y2="23"></line>
+                        <line x1="20" y1="9" x2="23" y2="9"></line>
+                        <line x1="20" y1="14" x2="23" y2="14"></line>
+                        <line x1="1" y1="9" x2="4" y2="9"></line>
+                        <line x1="1" y1="14" x2="4" y2="14"></line>
+                    </svg>
+                    <span style="font-size: 0.9rem; font-weight: 500;">Threads</span>
+                </button>
+
                 <button id="start-btn" class="primary-btn" disabled>
                     <span>Start Processing</span>
                 </button>
@@ -96,7 +115,12 @@
                     <div class="api-key-wrapper">
                         <input type="password" id="api-key-input" placeholder="Enter Gemini API Key">
                         <button id="toggle-key-visibility" class="icon-toggle-btn" title="Show/Hide API Key">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="feather feather-eye">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
                         </button>
                     </div>
                     <div id="key-status" class="key-status">Checking...</div>
@@ -104,6 +128,31 @@
             </div>
             <div class="modal-footer">
                 <button id="save-key-btn" class="primary-btn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Threads Modal -->
+    <div id="threads-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>CPU Threads</h2>
+                <button id="close-threads-btn" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">Select number of
+                    threads for transcription (Max: <span id="max-cpu-display">4</span>)</p>
+                <div class="input-group">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <label for="threads-slider">Threads</label>
+                        <span id="threads-value-display" style="font-weight: bold; color: var(--accent-color);">4</span>
+                    </div>
+                    <input type="range" id="threads-slider" min="1" max="4" value="4" style="width: 100%;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="save-threads-btn" class="primary-btn">Save</button>
             </div>
         </div>
     </div>

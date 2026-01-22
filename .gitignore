@@ -1,6 +1,7 @@
 audio/
 output/
 slides/
+.venv/
 .env
 temp_uploads/
 __pycache__/
