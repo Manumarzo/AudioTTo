@@ -26,12 +26,12 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    # --- AGGIUNTA FONDAMENTALE PER PYWEBVIEW SU LINUX ---
+    # --- FIX LINUX: Aggiornato a 4.1 per Ubuntu 24.04 ---
     - name: Install Linux System Dependencies (pywebview)
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
+        sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -39,7 +39,9 @@ jobs:
         python-version: '3.10' 
         cache: 'pip'
 
+    # --- FIX WINDOWS: Aggiunto 'shell: bash' per supportare la sintassi if [ -f ... ] ---
     - name: Install Python Dependencies
+      shell: bash
       run: |
         python -m pip install --upgrade pip
         pip install pyinstaller
@@ -48,7 +50,7 @@ jobs:
     - name: Create bin directory
       run: mkdir bin
 
-    # --- 1. SETUP FFMPEG PER WINDOWS ---
+    # --- SETUP FFMPEG PER WINDOWS ---
     - name: Download FFmpeg (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
@@ -59,7 +61,7 @@ jobs:
         Move-Item -Path "ffmpeg_temp/ffmpeg-master-latest-win64-gpl/bin/ffmpeg.exe" -Destination "bin/"
         Move-Item -Path "ffmpeg_temp/ffmpeg-master-latest-win64-gpl/bin/ffprobe.exe" -Destination "bin/"
 
-    # --- 2. SETUP FFMPEG PER LINUX ---
+    # --- SETUP FFMPEG PER LINUX ---
     - name: Download FFmpeg (Linux)
       if: runner.os == 'Linux'
       run: |
@@ -69,14 +71,15 @@ jobs:
         mv ffmpeg-*-amd64-static/ffprobe bin/
         chmod +x bin/ffmpeg bin/ffprobe
 
-    # --- 3. SETUP FFMPEG PER MACOS ---
+    # --- FIX MACOS: Usiamo i permalink stabili invece di file specifici ---
     - name: Download FFmpeg (macOS)
       if: runner.os == 'macOS'
       run: |
-        curl -L -o ffmpeg.zip https://evermeet.cx/ffmpeg/ffmpeg-113394-g5409605380.zip
-        curl -L -o ffprobe.zip https://evermeet.cx/ffmpeg/ffprobe-113394-g5409605380.zip
-        unzip ffmpeg.zip
-        unzip ffprobe.zip
+        # Scarica l'ultima release stabile (API Permalink)
+        curl -L -o ffmpeg.zip "https://evermeet.cx/ffmpeg/getrelease/zip"
+        curl -L -o ffprobe.zip "https://evermeet.cx/ffmpeg/getrelease/file/ffprobe/zip"
+        unzip -o ffmpeg.zip
+        unzip -o ffprobe.zip
         mv ffmpeg bin/
         mv ffprobe bin/
         chmod +x bin/ffmpeg bin/ffprobe
