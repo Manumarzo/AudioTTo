@@ -71,19 +71,29 @@ jobs:
         mv ffmpeg-*-amd64-static/ffprobe bin/
         chmod +x bin/ffmpeg bin/ffprobe
 
-    # --- FIX MACOS: Usiamo i permalink stabili invece di file specifici ---
+# --- FIX MACOS: Usiamo link statici alla versione 7.1 (molto più stabili) ---
     - name: Download FFmpeg (macOS)
       if: runner.os == 'macOS'
       run: |
-        # Scarica l'ultima release stabile (API Permalink)
-        curl -L -o ffmpeg.zip "https://evermeet.cx/ffmpeg/getrelease/zip"
-        curl -L -o ffprobe.zip "https://evermeet.cx/ffmpeg/getrelease/file/ffprobe/zip"
+        # Scarica ffmpeg 7.1 statico
+        curl -L -o ffmpeg.zip https://evermeet.cx/pub/ffmpeg/ffmpeg-7.1.zip
+        # Scarica ffprobe 7.1 statico
+        curl -L -o ffprobe.zip https://evermeet.cx/pub/ffprobe/ffprobe-7.1.zip
+        
+        # Unzip sovrascrivendo senza chiedere conferma (-o)
         unzip -o ffmpeg.zip
         unzip -o ffprobe.zip
+        
+        # Sposta i binari
         mv ffmpeg bin/
         mv ffprobe bin/
+        
+        # Permessi di esecuzione
         chmod +x bin/ffmpeg bin/ffprobe
-
+        
+        # Debug: controlla che ci siano
+        ls -l bin/
+        
     # --- BUILD ---
     - name: Build with PyInstaller
       run: pyinstaller build.spec

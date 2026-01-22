@@ -72,17 +72,17 @@ packages_to_copy = [
     'packaging', 
     'filelock', 
     'huggingface_hub', 
-    'google.generativeai', # Corrisponde a google-genai
+    'google.genai',
     'numpy',
     'uvicorn',
-    'fastapi' # A volte serve copiare i metadati anche di fastapi
+    'fastapi'
 ]
 
 for package in packages_to_copy:
     try:
         datas += copy_metadata(package)
     except Exception:
-        print(f"⚠️ Warning: Could not copy metadata for '{package}'. Skipping (this is usually fine).")
+        print(f"[WARNING] Could not copy metadata for '{package}'. Skipping (this is usually fine).")
 
 # --- Analysis ---
 a = Analysis(
