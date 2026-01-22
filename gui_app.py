@@ -1,5 +1,24 @@
 import os
 import sys
+
+# --- FIX WINDOWS ENCODING (Allows Emoji without crashing) ---
+if sys.platform == "win32":
+    # Reconfigure stdout and stderr to use UTF-8 instead of cp1252
+    if sys.stdout is not None:
+        try:
+            sys.stdout.reconfigure(encoding='utf-8')
+        except AttributeError:
+            import codecs
+            sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
+
+    if sys.stderr is not None:
+        try:
+            sys.stderr.reconfigure(encoding='utf-8')
+        except AttributeError:
+            import codecs
+            sys.stderr = codecs.getwriter("utf-8")(sys.stderr.detach())
+# ------------------------------------------------------------
+
 import shutil
 import asyncio
 import threading

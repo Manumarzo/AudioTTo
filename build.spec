@@ -50,21 +50,37 @@ hiddenimports = [
     
     # Utilities
     'python_multipart',
-    'dotenv',          # Per python-dotenv
-    'fitz',            # Per PyMuPDF
-    'webview',         # Per pywebview
+    'dotenv',          
+    'fitz',            
+    'webview', 
+    
+    # --- AGGIUNTA IMPORTANTE PER WINDOWS ---
+    'clr_loader',
+    'pythonnet',
+    'System',
+    'System.Windows.Forms',       
+    # ---------------------------------------
     
     # AI & Audio
     'faster_whisper'
 ]
 
 # --- Packets ---
-# collects faster_whisper
+# 1. Collects faster_whisper
 tmp_ret = collect_all('faster_whisper')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
+# 2. Collects Pythonnet & Pywebview (FONDAMENTALE PER IL FIX WINDOWS)
+tmp_ret = collect_all('pythonnet')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
+tmp_ret = collect_all('clr_loader')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
+tmp_ret = collect_all('pywebview')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
 # --- secure blocks for metadata ---
-# this block try to copy metadata, but don't crash if not found
 packages_to_copy = [
     'tqdm', 
     'regex', 
@@ -72,17 +88,18 @@ packages_to_copy = [
     'packaging', 
     'filelock', 
     'huggingface_hub', 
-    'google.genai',
+    'google-genai',  # Assicurati che sia col trattino come nel requirements
     'numpy',
     'uvicorn',
-    'fastapi'
+    'fastapi' 
 ]
 
 for package in packages_to_copy:
     try:
         datas += copy_metadata(package)
     except Exception:
-        print(f"[WARNING] Could not copy metadata for '{package}'. Skipping (this is usually fine).")
+        # Senza emoji qui per sicurezza massima nel log di build, ma nell'app puoi usarle
+        print(f"[WARNING] Could not copy metadata for '{package}'. Skipping.")
 
 # --- Analysis ---
 a = Analysis(

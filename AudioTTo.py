@@ -3,7 +3,6 @@ import sys
 import subprocess
 import argparse
 from pydub import AudioSegment
-# import imageio_ffmpeg as ffmpeg  <-- RIMOSSO: Usiamo il binario locale
 from faster_whisper import WhisperModel
 import google.genai as genai
 from google.genai import types
