@@ -218,7 +218,39 @@ async def websocket_endpoint(websocket: WebSocket):
         except:
             pass
 
+
+def run_audiotto_wrapper(args_list, loop, websocket):
+    """
+    Wrapper per eseguire AudioTTo.main in un thread separato,
+    reindirizzando i log e l'output di tqdm al WebSocket.
+    """
+    
+    # Callback thread-safe che invia messaggi al WebSocket nel loop principale
+    def ws_log(msg):
+        # ws_log viene chiamato dal thread worker, quindi dobbiamo usare call_soon_threadsafe
+        # per schedulare l'invio sul loop asyncio principale.
+        async def send():
+            try:
+                await websocket.send_text(msg)
+            except Exception:
+                pass # Ignora errori se socket chiuso
+        
+        asyncio.run_coroutine_threadsafe(send(), loop)
+
+    # Impostiamo il logger
+    AudioTTo.set_logger(ws_log)
+
+    try:
+        # Esegue il main di AudioTTo
+        AudioTTo.main(args_list)
+    except Exception as e:
+        ws_log(f"❌ Error in wrapper: {e}")
+    finally:
+        # Ripristina logger (opzionale, ma pulito)
+        AudioTTo.set_logger(None)
+
 @app.post("/upload")
+
 async def upload_file_endpoint(file: UploadFile = File(...)):
     file_location = os.path.join("temp_uploads", file.filename)
     with open(file_location, "wb+") as file_object:
@@ -260,5 +292,11 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\n🛑 Application stopped by user.")
         sys.exit(0)
-
-# --- FINE NUOVO BLOCCO ---
+    finally:
+        # Cleanup temp_uploads on exit
+        if os.path.exists("temp_uploads"):
+            try:
+                shutil.rmtree("temp_uploads")
+                print("🧹 Cleaned up temp_uploads folder.")
+            except Exception as e:
+                print(f"⚠️ Error cleaning up temp_uploads: {e}")

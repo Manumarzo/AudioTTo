@@ -4,10 +4,10 @@ faster-whisper
 google-genai
 setuptools
 PyMuPDF
-
 python-dotenv
 fastapi
 uvicorn
 python-multipart
 pywebview
 pydantic
+tqdm

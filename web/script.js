@@ -24,6 +24,11 @@ document.addEventListener('DOMContentLoaded', () => {
     burgerBtn.addEventListener('click', () => {
         sidebar.classList.toggle('open');
         burgerBtn.classList.toggle('open');
+
+        // Refresh outputs list when opening the sidebar
+        if (sidebar.classList.contains('open')) {
+            loadOutputs();
+        }
     });
 
     let audioFile = null;
@@ -330,6 +335,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setupDragDrop(pdfDropZone, pdfInput, 'pdf', (file) => {
         pdfFile = file;
         document.getElementById('pdf-file-info').textContent = `Selected file: ${file.name}`;
+        pagesInput.disabled = false;
+        pagesInput.placeholder = "e.g., 1-5 (Optional)";
     });
 
     function checkStartReady() {
@@ -390,7 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ws = new WebSocket(`${protocol}//${window.location.host}/ws/process`);
 
         ws.onopen = () => {
-            statusIndicator.textContent = 'Processing in progress...';
+            statusIndicator.textContent = 'Elaboration in progress...';
             statusIndicator.style.color = '#3b82f6'; // Blue
 
             // Send config to start
@@ -416,6 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 audioInput.value = '';
                 pdfInput.value = '';
                 pagesInput.value = '';
+                pagesInput.disabled = true; // Disable again until new PDF
                 document.getElementById('audio-file-info').textContent = '';
                 document.getElementById('pdf-file-info').textContent = '';
 
@@ -439,10 +447,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function log(message) {
-        const div = document.createElement('div');
-        div.className = 'log-line';
-        div.textContent = `> ${message}`;
-        terminalWindow.appendChild(div);
+        const terminalWindow = document.getElementById('terminal-window');
+
+        // Handle Carriage Return (\r) for progress bars (tqdm)
+        // If message starts with \r, we update the last line instead of appending new one.
+        if (message.startsWith('\r')) {
+            const cleanMessage = message.replace(/^\r+/, '');
+            const lastLine = terminalWindow.lastElementChild;
+            if (lastLine) {
+                lastLine.textContent = `> ${cleanMessage}`;
+            } else {
+                const div = document.createElement('div');
+                div.className = 'log-line';
+                div.textContent = `> ${cleanMessage}`;
+                terminalWindow.appendChild(div);
+            }
+        } else {
+            const div = document.createElement('div');
+            div.className = 'log-line';
+            div.textContent = `> ${message}`;
+            terminalWindow.appendChild(div);
+        }
         terminalWindow.scrollTop = terminalWindow.scrollHeight;
     }
 
