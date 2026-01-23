@@ -80,6 +80,10 @@ datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('pywebview')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
+# 3. Collects av (PyAV) - Critical for faster_whisper
+tmp_ret = collect_all('av')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
 # --- secure blocks for metadata ---
 packages_to_copy = [
     'tqdm', 
@@ -91,7 +95,8 @@ packages_to_copy = [
     'google-genai',  # Assicurati che sia col trattino come nel requirements
     'numpy',
     'uvicorn',
-    'fastapi' 
+    'fastapi',
+    'av' # Ensure metadata is copied if needed
 ]
 
 for package in packages_to_copy:
@@ -135,7 +140,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False, # DISABLED UPX
     console=False,  
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -151,7 +156,7 @@ coll = COLLECT(
     a.zipfiles,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False, # DISABLED UPX
     upx_exclude=[],
     name='AudioTTo',
 )

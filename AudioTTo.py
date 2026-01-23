@@ -1,13 +1,5 @@
 import os
 import sys
-
-# --- FIX WINDOWS ENCODING (Moved to main execution to avoid conflicts) ---
-# Logic moved to ensure gui_app.py's logger is prioritized when imported
-# ------------------------------------------------------------
-def safe_print(text):
-    try: print(text)
-    except: pass
-
 import subprocess
 import argparse
 from pydub import AudioSegment
@@ -22,6 +14,13 @@ from dotenv import load_dotenv
 import threading
 from tqdm import tqdm
 import fitz 
+
+# --- FIX WINDOWS ENCODING ---
+# Handled in __main__ and gui_app.py
+# ------------------------------------------------------------
+def safe_print(text):
+    try: print(text)
+    except: pass
 
 # --- CONFIGURAZIONE PATH E BINARI ---
 

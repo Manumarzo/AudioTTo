@@ -1,45 +1,17 @@
 import os
 import sys
 
-# --- ROBUST CONSOLE ENCODING FIX (No Log File) ---
-import codecs
-import platform
-
-class SafeStream:
-    """Redirects writes to the original stream enforcing UTF-8 to prevent crashes."""
-    def __init__(self, stream):
-        self.stream = stream
-
-    def write(self, message):
-        if not message or not self.stream: return
-        
-        # Write to original stream (safe)
-        try:
-            if hasattr(self.stream, 'buffer'):
-                self.stream.buffer.write(message.encode('utf-8', errors='replace'))
-            else:
-                self.stream.write(message)
-            self.stream.flush()
-        except Exception:
-            pass # Ignore console errors in frozen app
-
-    def flush(self):
-        if self.stream:
-            try: 
-                self.stream.flush()
-            except: pass
-
+# --- FIX WINDOWS ENCODING (Simple) ---
 if sys.platform == "win32":
     os.environ["PYTHONIOENCODING"] = "utf-8"
-    
-    # Redirect stdout/stderr to our safe stream
-    if sys.stdout is not None:
-        sys.stdout = SafeStream(sys.stdout)
-    if sys.stderr is not None:
-        sys.stderr = SafeStream(sys.stderr)
+    if sys.stdout:
+        try: sys.stdout.reconfigure(encoding='utf-8')
+        except: pass
+    if sys.stderr:
+        try: sys.stderr.reconfigure(encoding='utf-8')
+        except: pass
 
 def safe_print(text):
-    """Print via safe stream"""
     try:
         print(text)
     except:
