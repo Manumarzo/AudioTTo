@@ -1,40 +1,49 @@
 import os
 import sys
 
-# --- FIX WINDOWS ENCODING (Allows Emoji without crashing) ---
+# --- ROBUST CONSOLE ENCODING FIX (No Log File) ---
+import codecs
+import platform
+
+class SafeStream:
+    """Redirects writes to the original stream enforcing UTF-8 to prevent crashes."""
+    def __init__(self, stream):
+        self.stream = stream
+
+    def write(self, message):
+        if not message or not self.stream: return
+        
+        # Write to original stream (safe)
+        try:
+            if hasattr(self.stream, 'buffer'):
+                self.stream.buffer.write(message.encode('utf-8', errors='replace'))
+            else:
+                self.stream.write(message)
+            self.stream.flush()
+        except Exception:
+            pass # Ignore console errors in frozen app
+
+    def flush(self):
+        if self.stream:
+            try: 
+                self.stream.flush()
+            except: pass
+
 if sys.platform == "win32":
-    # Set environment variables for UTF-8 encoding
     os.environ["PYTHONIOENCODING"] = "utf-8"
     
-    # Reconfigure stdout and stderr to use UTF-8 instead of cp1252
+    # Redirect stdout/stderr to our safe stream
     if sys.stdout is not None:
-        try:
-            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-        except (AttributeError, OSError):
-            try:
-                import codecs
-                sys.stdout = codecs.getwriter("utf-8")(sys.stdout.buffer if hasattr(sys.stdout, 'buffer') else sys.stdout, errors='replace')
-            except:
-                pass  # If all else fails, continue without reconfiguration
-
+        sys.stdout = SafeStream(sys.stdout)
     if sys.stderr is not None:
-        try:
-            sys.stderr.reconfigure(encoding='utf-8', errors='replace')
-        except (AttributeError, OSError):
-            try:
-                import codecs
-                sys.stderr = codecs.getwriter("utf-8")(sys.stderr.buffer if hasattr(sys.stderr, 'buffer') else sys.stderr, errors='replace')
-            except:
-                pass  # If all else fails, continue without reconfiguration
+        sys.stderr = SafeStream(sys.stderr)
 
-# Safe print function that handles encoding errors
 def safe_print(text):
-    """Print text with automatic encoding error handling"""
+    """Print via safe stream"""
     try:
         print(text)
-    except UnicodeEncodeError:
-        # Fallback: print with ASCII-compatible characters only
-        print(text.encode('ascii', errors='replace').decode('ascii'))
+    except:
+        pass
 # ------------------------------------------------------------
 
 import shutil

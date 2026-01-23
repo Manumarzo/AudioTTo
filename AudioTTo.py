@@ -1,41 +1,12 @@
 import os
 import sys
 
-# --- FIX WINDOWS ENCODING (Allows Emoji without crashing) ---
-if sys.platform == "win32":
-    # Set environment variables for UTF-8 encoding
-    os.environ["PYTHONIOENCODING"] = "utf-8"
-    
-    # Reconfigure stdout and stderr to use UTF-8 instead of cp1252
-    if sys.stdout is not None:
-        try:
-            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-        except (AttributeError, OSError):
-            try:
-                import codecs
-                sys.stdout = codecs.getwriter("utf-8")(sys.stdout.buffer if hasattr(sys.stdout, 'buffer') else sys.stdout, errors='replace')
-            except:
-                pass  # If all else fails, continue without reconfiguration
-
-    if sys.stderr is not None:
-        try:
-            sys.stderr.reconfigure(encoding='utf-8', errors='replace')
-        except (AttributeError, OSError):
-            try:
-                import codecs
-                sys.stderr = codecs.getwriter("utf-8")(sys.stderr.buffer if hasattr(sys.stderr, 'buffer') else sys.stderr, errors='replace')
-            except:
-                pass  # If all else fails, continue without reconfiguration
-
-# Safe print function that handles encoding errors
-def safe_print(text):
-    """Print text with automatic encoding error handling"""
-    try:
-        print(text)
-    except UnicodeEncodeError:
-        # Fallback: print with ASCII-compatible characters only
-        print(text.encode('ascii', errors='replace').decode('ascii'))
+# --- FIX WINDOWS ENCODING (Moved to main execution to avoid conflicts) ---
+# Logic moved to ensure gui_app.py's logger is prioritized when imported
 # ------------------------------------------------------------
+def safe_print(text):
+    try: print(text)
+    except: pass
 
 import subprocess
 import argparse
@@ -685,6 +656,16 @@ def main(args_list=None):
 
 
 if __name__ == "__main__":
+    # Fix obbligatorio per Multiprocessing su Windows quando si crea un EXE
+    # Also apply encoding fix for standalone execution
+    if sys.platform == "win32":
+        os.environ["PYTHONIOENCODING"] = "utf-8"
+        if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+            try: sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+            except: pass
+        if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
+            try: sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+            except: pass
     # Fix obbligatorio per Multiprocessing su Windows quando si crea un EXE
     if sys.platform in ["win32", "darwin"]:
         multiprocessing.freeze_support()
