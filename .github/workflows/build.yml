@@ -13,9 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: windows-latest
-            artifact_name: AudioTTo_Windows
-            
+        
           - os: ubuntu-latest
             artifact_name: AudioTTo_Linux
             
@@ -46,21 +44,12 @@ jobs:
         python -m pip install --upgrade pip
         pip install pyinstaller
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        if [ "$RUNNER_OS" == "Windows" ]; then pip install pythonnet clr_loader; fi
+
 
     - name: Create bin directory
       run: mkdir bin
 
-    # --- SETUP FFMPEG PER WINDOWS ---
-    - name: Download FFmpeg (Windows)
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        $ffmpegUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
-        Invoke-WebRequest -Uri $ffmpegUrl -OutFile ffmpeg.zip
-        Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_temp
-        Move-Item -Path "ffmpeg_temp/ffmpeg-master-latest-win64-gpl/bin/ffmpeg.exe" -Destination "bin/"
-        Move-Item -Path "ffmpeg_temp/ffmpeg-master-latest-win64-gpl/bin/ffprobe.exe" -Destination "bin/"
+
 
     # --- SETUP FFMPEG PER LINUX ---
     - name: Download FFmpeg (Linux)

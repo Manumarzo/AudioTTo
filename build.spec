@@ -140,8 +140,8 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=False, # DISABLED UPX
-    console=True,  # ENABLED CONSOLE FOR DEBUGGING
+    upx=False, 
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
@@ -156,7 +156,7 @@ coll = COLLECT(
     a.zipfiles,
     a.datas,
     strip=False,
-    upx=False, # DISABLED UPX
+    upx=False,
     upx_exclude=[],
     name='AudioTTo',
 )

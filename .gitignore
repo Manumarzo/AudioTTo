@@ -3,6 +3,8 @@ output/
 slides/
 .venv/
 .env
+build/
+dist/
 temp_uploads/
 __pycache__/
 bin/
