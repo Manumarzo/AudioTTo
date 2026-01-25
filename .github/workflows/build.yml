@@ -9,14 +9,14 @@ jobs:
   build:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+
     strategy:
       fail-fast: false
       matrix:
         include:
-        
           - os: ubuntu-latest
             artifact_name: AudioTTo_Linux
-            
+
           - os: macos-latest
             artifact_name: AudioTTo_MacOS
 
@@ -27,8 +27,8 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    # --- FIX LINUX: PyGObject e GTK per pywebview ---
-    - name: Install Linux System Dependencies (pywebview)
+    # ---------- LINUX DEPENDENCIES (GTK + WEBKIT) ----------
+    - name: Install Linux System Dependencies
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
@@ -43,13 +43,13 @@ jobs:
           gir1.2-gtk-3.0 \
           gir1.2-webkit2-4.1
 
+    # ---------- PYTHON ----------
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.12' 
+        python-version: '3.12'
         cache: 'pip'
 
-    # --- FIX WINDOWS: Aggiunto 'shell: bash' per supportare la sintassi if [ -f ... ] ---
     - name: Install Python Dependencies
       shell: bash
       run: |
@@ -57,13 +57,10 @@ jobs:
         pip install pyinstaller
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-
     - name: Create bin directory
-      run: mkdir bin
+      run: mkdir -p bin
 
-
-
-    # --- SETUP FFMPEG PER LINUX ---
+    # ---------- FFMPEG LINUX ----------
     - name: Download FFmpeg (Linux)
       if: runner.os == 'Linux'
       run: |
@@ -73,46 +70,49 @@ jobs:
         mv ffmpeg-*-amd64-static/ffprobe bin/
         chmod +x bin/ffmpeg bin/ffprobe
 
-# --- FIX MACOS: Usiamo link statici alla versione 7.1 (molto più stabili) ---
+    # ---------- FFMPEG MACOS ----------
     - name: Download FFmpeg (macOS)
       if: runner.os == 'macOS'
       run: |
-        # Scarica ffmpeg 7.1 statico
         curl -L -o ffmpeg.zip https://evermeet.cx/pub/ffmpeg/ffmpeg-7.1.zip
-        # Scarica ffprobe 7.1 statico
         curl -L -o ffprobe.zip https://evermeet.cx/pub/ffprobe/ffprobe-7.1.zip
-        
-        # Unzip sovrascrivendo senza chiedere conferma (-o)
+
         unzip -o ffmpeg.zip
         unzip -o ffprobe.zip
-        
-        # Sposta i binari
+
         mv ffmpeg bin/
         mv ffprobe bin/
-        
-        # Permessi di esecuzione
         chmod +x bin/ffmpeg bin/ffprobe
-        
-        # Debug: controlla che ci siano
         ls -l bin/
 
-    # --- SETUP FFMPEG PER WINDOWS ---
+    # ---------- FFMPEG WINDOWS (ROBUST FIX) ----------
     - name: Download FFmpeg (Windows)
       if: runner.os == 'Windows'
       shell: powershell
       run: |
-        Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile "ffmpeg.zip"
-        Expand-Archive -Path "ffmpeg.zip" -DestinationPath "."
-        $ffmpegDir = Get-ChildItem -Path "ffmpeg-*-essentials" | Select-Object -ExpandProperty FullName
-        Move-Item -Path "$ffmpegDir\bin\ffmpeg.exe" -Destination "bin\"
-        Move-Item -Path "$ffmpegDir\bin\ffprobe.exe" -Destination "bin\"
-        Write-Host "FFmpeg binaries installed in bin/"
-        
-    # --- BUILD ---
+        Invoke-WebRequest `
+          -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" `
+          -OutFile "ffmpeg.zip"
+
+        Expand-Archive -Path "ffmpeg.zip" -DestinationPath "ffmpeg"
+
+        $ffmpegExe = Get-ChildItem -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+        $ffprobeExe = Get-ChildItem -Recurse -Filter ffprobe.exe | Select-Object -First 1
+
+        if (-not $ffmpegExe -or -not $ffprobeExe) {
+          Write-Error "FFmpeg binaries not found"
+          exit 1
+        }
+
+        Move-Item $ffmpegExe.FullName bin\ffmpeg.exe
+        Move-Item $ffprobeExe.FullName bin\ffprobe.exe
+        Get-ChildItem bin
+
+    # ---------- BUILD ----------
     - name: Build with PyInstaller
       run: pyinstaller build.spec
 
-    # --- UPLOAD ARTIFACTS ---
+    # ---------- UPLOAD ----------
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
