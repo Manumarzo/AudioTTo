@@ -59,8 +59,8 @@ Before you begin, ensure you have the following:
       - *Alternative*: Run `Install_MiKTeX.bat` included in the folder.
     - **macOS**: [MacTeX](https://www.tug.org/mactex/)
       - *Alternative*: Run `install_deps_mac.sh` included in the folder (requires Homebrew).
-    - **Linux**: `texlive-full`
-      - *Alternative*: Run `install_deps_linux.sh` included in the folder.
+    - **Linux**: [Tex Live](https://www.tug.org/texlive/)
+      - *Alternative*: Run `install_deps_linux.sh` included in the folder or run `sudo apt install texlive`.
 - A **Google Gemini API Key**. You can get one from [Google AI Studio](https://aistudio.google.com/).
 
 ---
@@ -75,6 +75,8 @@ If you downloaded the **standalone executable**:
     - **Windows**: Double-click `AudioTTo.exe`.
     - **macOS**: Double-click `AudioTTo.app`. *Note: If you see a security warning, go to System Settings > Privacy & Security and allow the app.*
     - **Linux**: Open a terminal in the folder and run `./AudioTTo` (ensure it has execution permissions: `chmod +x AudioTTo`).
+    <br>
+    > **Note**: On Linux, you need to open the browser manually at `http://127.0.0.1:8000` or `ctrl+click the link` in the terminal after you run AudioTTo.
 
 ---
 
@@ -118,20 +120,26 @@ For automation or headless environments.
 
 **Set your API Key first:**
 Create a file named `.env` in the root directory of the project. Open it with a text editor and add your API Key:
-    ```env
-    GEMINI_API_KEY=your_actual_api_key_here
-    ```
+```env
+GEMINI_API_KEY = your_actual_api_key_here
+```
 
 **Run the script:**
 ```bash
 # Basic transcription
 python AudioTTo.py lecture.wav
 
+# With specific threads
+python AudioTTo.py lecture.wav --threads 4
+
 # With slides
 python AudioTTo.py lecture.wav --slides slides.pdf
 
 # With specific slide pages
 python AudioTTo.py lecture.wav --slides slides.pdf --pages 1-15
+
+# With slides and specific threads
+python AudioTTo.py lecture.wav --slides slides.pdf --threads 4
 ```
 
 ---
