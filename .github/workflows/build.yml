@@ -20,6 +20,9 @@ jobs:
           - os: macos-latest
             artifact_name: AudioTTo_MacOS
 
+          - os: windows-latest
+            artifact_name: AudioTTo_Windows
+
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
@@ -81,6 +84,29 @@ jobs:
         mv ffprobe bin/
         chmod +x bin/ffmpeg bin/ffprobe
         ls -l bin/
+
+    # ---------- FFMPEG WINDOWS (ROBUST FIX) ----------
+    - name: Download FFmpeg (Windows)
+      if: runner.os == 'Windows'
+      shell: powershell
+      run: |
+        Invoke-WebRequest `
+          -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" `
+          -OutFile "ffmpeg.zip"
+
+        Expand-Archive -Path "ffmpeg.zip" -DestinationPath "ffmpeg"
+
+        $ffmpegExe = Get-ChildItem -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+        $ffprobeExe = Get-ChildItem -Recurse -Filter ffprobe.exe | Select-Object -First 1
+
+        if (-not $ffmpegExe -or -not $ffprobeExe) {
+          Write-Error "FFmpeg binaries not found"
+          exit 1
+        }
+
+        Move-Item $ffmpegExe.FullName bin\ffmpeg.exe
+        Move-Item $ffprobeExe.FullName bin\ffprobe.exe
+        Get-ChildItem bin
 
     # ---------- BUILD ----------
     - name: Build with PyInstaller

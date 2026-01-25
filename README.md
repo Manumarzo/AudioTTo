@@ -93,6 +93,15 @@ If you downloaded the **standalone executable**:
     pip install -r requirements.txt
     ```
 
+3.  **Setup FFmpeg (Required for Local Run)**:
+    - Create a folder named `bin` in the root directory.
+    - Download **FFmpeg** and **FFprobe** executables (static builds) for your OS:
+        - [Windows Builds](https://www.gyan.dev/ffmpeg/builds/)
+        - [macOS Builds](https://evermeet.cx/pub/ffmpeg/)
+        - [Linux Builds](https://johnvansickle.com/ffmpeg/)
+    - Place `ffmpeg` (or `ffmpeg.exe`) and `ffprobe` (or `ffprobe.exe`) inside the `bin` folder.
+    - *Note: This is required as AudioTTo expects these binaries in the local `bin` folder.*
+
 ---
 
 ## 🚀 How to Use
