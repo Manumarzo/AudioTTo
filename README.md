@@ -76,7 +76,7 @@ If you downloaded the **standalone executable**:
     - **macOS**: Double-click `AudioTTo.app`. *Note: If you see a security warning, go to System Settings > Privacy & Security and allow the app.*
     - **Linux**: Open a terminal in the folder and run `./AudioTTo` (ensure it has execution permissions: `chmod +x AudioTTo`).
     <br>
-    > **Note**: On Linux, you need to open the browser manually at `http://127.0.0.1:8000` or `ctrl+click the link` in the terminal after you run AudioTTo.
+    >**Note**: On Linux, you need to open the browser manually at `http://127.0.0.1:8000` or `ctrl+click the link` in the terminal after you run AudioTTo.
 
 ---
 
