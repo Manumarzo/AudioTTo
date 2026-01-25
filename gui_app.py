@@ -307,23 +307,32 @@ if __name__ == "__main__":
     # 3. Avvia la GUI
     try:
         webview.start()
-    except RuntimeError as e:
-        # Handle pythonnet/winforms initialization errors
+    except Exception as e:
+        # Handle pywebview initialization errors (Windows, Linux, macOS)
         error_msg = str(e)
-        if "Python.Runtime.Loader.Initialize" in error_msg or "pythonnet" in error_msg.lower():
-            safe_print("\n" + "="*60)
-            safe_print("❌ ERROR: Failed to initialize GUI window")
-            safe_print("="*60)
-            safe_print("\nThis appears to be a compatibility issue with the GUI library.")
-            safe_print("\nPossible solutions:")
-            safe_print("  1. Try running as Administrator")
-            safe_print("  2. Install .NET Framework 4.7.2 or later")
-            safe_print("  3. Update Windows to the latest version")
-            safe_print("\nFor now, you can use the web interface instead:")
-            safe_print("  - The server is running at: http://127.0.0.1:8000")
-            safe_print("  - Open this URL in your browser manually")
-            safe_print("\nPress Ctrl+C to exit when done.")
-            safe_print("="*60 + "\n")
+        is_gtk_error = "GTK" in error_msg or "gi" in error_msg or "QT" in error_msg or "qtpy" in error_msg
+        is_pythonnet_error = "Python.Runtime.Loader.Initialize" in error_msg or "pythonnet" in error_msg.lower()
+        
+        if is_gtk_error or is_pythonnet_error or "WebViewException" in str(type(e)):
+            safe_print("\n" + "="*70)
+            safe_print("⚠️  GUI WINDOW UNAVAILABLE - Using Web Interface Instead")
+            safe_print("="*70)
+            
+            if is_gtk_error:
+                safe_print("\n🐧 Linux detected: GTK/Qt libraries not available in this build.")
+                safe_print("\nTo use the native window, install system dependencies:")
+                safe_print("  sudo apt-get install python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1")
+            elif is_pythonnet_error:
+                safe_print("\n🪟 Windows: GUI library initialization failed.")
+                safe_print("\nPossible solutions:")
+                safe_print("  1. Install .NET Framework 4.7.2 or later")
+                safe_print("  2. Try running as Administrator")
+            
+            safe_print("\n✅ Server is running successfully at:")
+            safe_print("   📡 http://127.0.0.1:8000")
+            safe_print("\n👉 Open this URL in your web browser to use AudioTTo")
+            safe_print("\n⌨️  Press Ctrl+C to exit when done.")
+            safe_print("="*70 + "\n")
             
             # Keep server alive for manual access
             try:
@@ -331,7 +340,7 @@ if __name__ == "__main__":
                 while True:
                     time.sleep(1)
             except KeyboardInterrupt:
-                pass
+                safe_print("\n👋 Application stopped.")
         else:
             # Re-raise if it's a different error
             raise
