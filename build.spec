@@ -110,7 +110,7 @@ exe = EXE(
     a.scripts,
     exclude_binaries=True,
     name='AudioTTo',
-    console=False,
+    console=True,
     icon='logo/logo_app.ico'
 )
 
