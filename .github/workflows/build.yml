@@ -53,10 +53,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install pyinstaller
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        # Install PyGObject on Linux for pywebview GTK backend
-        if [ "${{ runner.os }}" == "Linux" ]; then
-          pip install PyGObject
-        fi
 
 
     - name: Create bin directory

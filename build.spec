@@ -60,16 +60,6 @@ hiddenimports = [
     'System',
     'System.Windows.Forms',       
     
-    # --- LINUX SPECIFIC (PyGObject for GTK) ---
-    'gi',
-    'gi.repository',
-    'gi.repository.Gtk',
-    'gi.repository.Gdk',
-    'gi.repository.GLib',
-    'gi.repository.GObject',
-    'gi.repository.Gio',
-    'gi.repository.WebKit2',
-    'cairo',
     # ---------------------------------------
     
     # AI & Audio
