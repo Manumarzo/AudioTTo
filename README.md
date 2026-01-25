@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.9+-blue.svg?style=flat&logo=python&logoColor=white" alt="Python 3.12+"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.12+-blue.svg?style=flat&logo=python&logoColor=white" alt="Python 3.12+"></a>
   <a href="https://github.com/guillaumekln/faster-whisper"><img src="https://img.shields.io/badge/Transcribed%20by-Faster--Whisper-green" alt="Faster-Whisper"></a>
   <a href="https://deepmind.google/technologies/gemini/"><img src="https://img.shields.io/badge/AI-Gemini-orange" alt="Gemini AI"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-purple.svg" alt="License: MIT"></a>

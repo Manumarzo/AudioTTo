@@ -20,6 +20,9 @@ jobs:
           - os: macos-latest
             artifact_name: AudioTTo_MacOS
 
+          - os: windows-latest
+            artifact_name: AudioTTo_Windows
+
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
@@ -43,7 +46,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.10' 
+        python-version: '3.12' 
         cache: 'pip'
 
     # --- FIX WINDOWS: Aggiunto 'shell: bash' per supportare la sintassi if [ -f ... ] ---
@@ -92,6 +95,18 @@ jobs:
         
         # Debug: controlla che ci siano
         ls -l bin/
+
+    # --- SETUP FFMPEG PER WINDOWS ---
+    - name: Download FFmpeg (Windows)
+      if: runner.os == 'Windows'
+      shell: powershell
+      run: |
+        Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile "ffmpeg.zip"
+        Expand-Archive -Path "ffmpeg.zip" -DestinationPath "."
+        $ffmpegDir = Get-ChildItem -Path "ffmpeg-*-essentials" | Select-Object -ExpandProperty FullName
+        Move-Item -Path "$ffmpegDir\bin\ffmpeg.exe" -Destination "bin\"
+        Move-Item -Path "$ffmpegDir\bin\ffprobe.exe" -Destination "bin\"
+        Write-Host "FFmpeg binaries installed in bin/"
         
     # --- BUILD ---
     - name: Build with PyInstaller

@@ -1,9 +1,26 @@
 import os
 import sys
 
-# --- FIX WINDOWS ENCODING (Simple) ---
+# --- FIX WINDOWS ENCODING & LOGGING ---
+# Setup basic logging to catch early errors
+import logging
+log_file = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "debug.log")
+logging.basicConfig(
+    filename=log_file, 
+    level=logging.DEBUG, 
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+
 if sys.platform == "win32":
     os.environ["PYTHONIOENCODING"] = "utf-8"
+    
+    # Fix for PyInstaller --noconsole causing sys.stdout/stderr to be None
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, "w")
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, "w")
+
+    # Try to reconfigure if they exist (console mode)
     if sys.stdout:
         try: sys.stdout.reconfigure(encoding='utf-8')
         except: pass
@@ -14,6 +31,7 @@ if sys.platform == "win32":
 def safe_print(text):
     try:
         print(text)
+        logging.info(text) # Also log to file
     except:
         pass
 # ------------------------------------------------------------
@@ -285,6 +303,25 @@ def start_server():
 if __name__ == "__main__":
     import multiprocessing
     import threading
+
+    # --- FIX CRITICAL FOR WINDOWS FROZEN BUILDS ---
+    if sys.platform == "win32" and getattr(sys, 'frozen', False):
+        try:
+            # In PyInstaller, we must tell pythonnet where the Python DLL is explicitly
+            # otherwise it fails to initialize with 'Failed to resolve Python.Runtime.Loader.Initialize'
+            base_dir = sys._MEIPASS
+            for fname in os.listdir(base_dir):
+                if fname.lower().startswith("python") and fname.lower().endswith(".dll"):
+                    dll_path = os.path.join(base_dir, fname)
+                    os.environ["PYTHONNET_PYDLL"] = dll_path
+                    # Use standard print here as logging might not be fully visible if console is suppressed
+                    # But it will appear in debug.log if configured early enough
+                    logging.info(f"Fixed PYTHONNET_PYDLL -> {dll_path}")
+                    break
+        except Exception as e:
+            logging.error(f"Error setting PYTHONNET_PYDLL: {e}")
+    # ---------------------------------------------
+
     import webview  # Importiamo pywebview
 
     # Fix per PyInstaller su Windows
@@ -304,9 +341,12 @@ if __name__ == "__main__":
         resizable=True
     )
 
-    # 3. Avvia la GUI
+    # 3. Avvia la GUI (forza EdgeChromium su Windows per evitare problemi con pythonnet)
     try:
-        webview.start()
+        if sys.platform == "win32":
+            webview.start(gui='edgechromium')  # Usa WebView2
+        else:
+            webview.start()
     except Exception as e:
         # Handle pywebview initialization errors (Windows, Linux, macOS)
         error_msg = str(e)
@@ -323,7 +363,7 @@ if __name__ == "__main__":
                 safe_print("\nTo use the native window, install system dependencies:")
                 safe_print("  sudo apt-get install python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1")
             elif is_pythonnet_error:
-                safe_print("\n🪟 Windows: GUI library initialization failed.")
+                safe_print(f"\n🪟 Windows: GUI library initialization failed.\n   Error details: {error_msg}")
                 safe_print("\nPossible solutions:")
                 safe_print("  1. Install .NET Framework 4.7.2 or later")
                 safe_print("  2. Try running as Administrator")
@@ -349,6 +389,7 @@ if __name__ == "__main__":
         sys.exit(0)
     except Exception as e:
         safe_print(f"\n❌ Unexpected error: {e}")
+        logging.exception("Critical error during application startup")
         raise
     finally:
         # Cleanup temp_uploads on exit
