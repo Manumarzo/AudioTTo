@@ -53,22 +53,28 @@
 
 Before you begin, ensure you have the following:
 
-- **Python 3.12 (recommended)** or higher.
-- A **LaTeX Distribution** installed and added to your PATH (required for PDF compilation):
-    - Windows: [MiKTeX](https://miktex.org/) or [TeX Live](https://www.tug.org/texlive/)
-    - macOS: [MacTeX](https://www.tug.org/mactex/)
-    - Linux: `texlive-full`
+- **Python 3.12 (recommended)** or higher (only if running from source).
+- A **LaTeX Distribution** installed and added to your PATH (required for PDF compilation). You can download it manually or use the included helper scripts:
+    - **Windows**: [MiKTeX](https://miktex.org/) (Recommended) or [TeX Live](https://www.tug.org/texlive/)
+      - *Alternative*: Run `Install_MiKTeX.bat` included in the folder.
+    - **macOS**: [MacTeX](https://www.tug.org/mactex/)
+      - *Alternative*: Run `install_deps_mac.sh` included in the folder (requires Homebrew).
+    - **Linux**: `texlive-full`
+      - *Alternative*: Run `install_deps_linux.sh` included in the folder.
 - A **Google Gemini API Key**. You can get one from [Google AI Studio](https://aistudio.google.com/).
 
 ---
 
 ## 📦 Installation (Executable)
 
-If you downloaded the **standalone executable (`.exe`)**:
+If you downloaded the **standalone executable**:
 
 1.  **Download** the latest version from the [Releases](https://github.com/Manumarzo/AudioTTo/releases) page.
 2.  **Prerequisites**: You still need a working **LaTeX distribution** installed (see Prerequisites above).
-3.  **Run**: Just double-click `AudioTTo.exe`. No Python installation required!
+3.  **Run**:
+    - **Windows**: Double-click `AudioTTo.exe`.
+    - **macOS**: Double-click `AudioTTo.app`. *Note: If you see a security warning, go to System Settings > Privacy & Security and allow the app.*
+    - **Linux**: Open a terminal in the folder and run `./AudioTTo` (ensure it has execution permissions: `chmod +x AudioTTo`).
 
 ---
 
