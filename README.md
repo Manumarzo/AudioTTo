@@ -74,10 +74,8 @@ If you downloaded the **standalone executable**:
 3.  **Run**:
     - **Windows**: Double-click `AudioTTo.exe`.
     - **macOS**: Double-click `AudioTTo.app`. *Note: If you see a security warning, go to System Settings > Privacy & Security and allow the app.*
-    - **Linux**: Open a terminal in the folder and run `./AudioTTo` (ensure it has execution permissions: `chmod +x AudioTTo`).
-    <br>
-> **Note**: On Linux, you need to open the browser manually at `http://127.0.0.1:8000` or `ctrl+click the link` in the terminal after you run AudioTTo.
-
+    - **Linux**: Open a terminal in the folder and run `./AudioTTo` 
+> On Linux and MacOS ensure it has execution permissions: `chmod +x AudioTTo`.
 ---
 
 ## ⚙️ Installation (Source Code)
@@ -148,7 +146,7 @@ python AudioTTo.py lecture.wav --slides slides.pdf
 python AudioTTo.py lecture.wav --slides slides.pdf --pages 1-15
 
 # With slides and specific threads
-python AudioTTo.py lecture.wav --slides slides.pdf --threads 4
+python AudioTTo.py lecture.wav --slides slides.pdf --pages 1-15 --threads 4
 ```
 
 ---
