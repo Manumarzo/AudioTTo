@@ -49,7 +49,6 @@ document.addEventListener('DOMContentLoaded', () => {
     closeModalBtn.addEventListener('click', closeModal);
 
     // Close modal when clicking outside
-    // Close modal when clicking outside (Robust check)
     let modalMouseDownTarget = null;
     settingsModal.addEventListener('mousedown', (e) => {
         modalMouseDownTarget = e.target;
@@ -136,13 +135,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.ok) {
                 showToast("API Key saved successfully!", 'success');
                 apiKeyInput.value = '';
-                // updateToggleVisibility is defined in scope above? No, it's defined inside DOMContentLoaded but not this closure? 
-                // Wait, everything is inside DOMContentLoaded. 
-                // But I need to make sure updateToggleVisibility is accessible or I should just manually reset it.
                 if (typeof updateToggleVisibility === 'function') {
                     updateToggleVisibility();
                 } else {
-                    // Fallback manual reset if function not found (though it should be)
                     const toggleKeyBtn = document.getElementById('toggle-key-visibility');
                     if (toggleKeyBtn) toggleKeyBtn.classList.remove('visible');
                 }
@@ -236,10 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const cpuCount = data.cpu_count || 4;
             const saved = data.saved_threads || 4;
 
-            // Set Max (leave at least 1 core free if possible, but allow using all if user wants or if low core count)
-            // Strategy: Max = cpuCount - 1 (min 1)
             let maxThreads = Math.max(1, cpuCount - 1);
-            // If user has very few cores (e.g. 2), maybe allow using all? Let's stick to n-1 for safety unless n=1.
             if (cpuCount <= 1) maxThreads = 1;
 
             threadsSlider.max = maxThreads;
@@ -254,12 +246,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Call init
     initThreadsInfo();
 
     // --- Drag & Drop Logic ---
-    // --- Global Drag & Drop Prevention ---
-    // Prevent default behavior (opening file) for dropping outside zones
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
         document.body.addEventListener(eventName, preventDefaults, false);
     });
@@ -347,7 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
     startBtn.addEventListener('click', async () => {
         if (!audioFile) return;
 
-        // 🔹 1. CHECK API KEY: Prima di fare qualsiasi cosa, controlliamo la chiave
+        // CHECK API KEY
         const keyData = await getKeyStatus();
         if (!keyData.is_set) {
             showToast("Gemini API Key is missing! Please configure it in Settings.", 'error');
@@ -449,8 +438,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function log(message) {
         const terminalWindow = document.getElementById('terminal-window');
 
-        // Handle Carriage Return (\r) for progress bars (tqdm)
-        // If message starts with \r, we update the last line instead of appending new one.
         if (message.startsWith('\r')) {
             const cleanMessage = message.replace(/^\r+/, '');
             const lastLine = terminalWindow.lastElementChild;
@@ -500,15 +487,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial load
     loadOutputs();
-    // Check key status on load is not strictly necessary if we check on modal open, 
-    // but good to know if we want to show a warning icon on the settings button later.
-    // For now, we only check when opening the modal.
 
     // --- Toast Notification Logic ---
     function showToast(message, type = 'info') {
         const container = document.getElementById('toast-container');
 
-        // 🔹 DEDUPLICATION: Check if identical toast exists
+        // DEDUPLICATION: Check if identical toast exists
         const existingToasts = container.querySelectorAll('.toast');
         for (let t of existingToasts) {
             if (t.innerText.includes(message)) {

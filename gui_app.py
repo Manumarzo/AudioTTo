@@ -63,11 +63,14 @@ app.mount("/static", StaticFiles(directory=web_folder), name="static")
 # ------------------------------------------------------------
 # ROUTES
 # ------------------------------------------------------------
+
+# Root (index.html): main menu 
 @app.get("/")
 async def index():
     return FileResponse(os.path.join(web_folder, "index.html"))
 
 
+# Outputs (folder where appunti.pdf is saved)
 @app.get("/outputs")
 async def list_outputs():
     files = []
@@ -84,6 +87,7 @@ async def list_outputs():
     return JSONResponse(content=files)
 
 
+# View PDF (open in browser)
 @app.get("/view/{folder}/{filename}")
 async def view_pdf(folder: str, filename: str):
     path = os.path.join("output", folder, filename)
@@ -92,6 +96,7 @@ async def view_pdf(folder: str, filename: str):
     return JSONResponse(status_code=404, content={"message": "Not found"})
 
 
+# Download PDF (download from browser)
 @app.get("/download/{folder}/{filename}")
 async def download_pdf(folder: str, filename: str):
     path = os.path.join("output", folder, filename)
@@ -107,12 +112,14 @@ class ApiKeyRequest(BaseModel):
     api_key: str
 
 
+# Check API key status
 @app.get("/api/key-status")
 async def key_status():
     load_dotenv(override=True)
     return {"is_set": bool(os.getenv("GEMINI_API_KEY"))}
 
 
+# Save API key
 @app.post("/api/key")
 async def save_key(req: ApiKeyRequest):
     key = req.api_key.strip()
@@ -146,6 +153,7 @@ class ThreadConfig(BaseModel):
     threads: int
 
 
+# Get app info
 @app.get("/api/info")
 async def app_info():
     return {
@@ -154,6 +162,7 @@ async def app_info():
     }
 
 
+# Save threads
 @app.post("/api/save-threads")
 async def save_threads(cfg: ThreadConfig):
     env_path = ".env"
@@ -185,6 +194,8 @@ async def save_threads(cfg: ThreadConfig):
 # ------------------------------------------------------------
 # FILE UPLOAD
 # ------------------------------------------------------------
+
+# Upload file
 @app.post("/upload")
 async def upload(file: UploadFile = File(...)):
     path = os.path.join("temp_uploads", file.filename)
@@ -196,6 +207,8 @@ async def upload(file: UploadFile = File(...)):
 # ------------------------------------------------------------
 # WEBSOCKET PROCESS
 # ------------------------------------------------------------
+
+# Process audio
 @app.websocket("/ws/process")
 async def process_ws(ws: WebSocket):
     await ws.accept()
@@ -265,6 +278,8 @@ def run_audiotto(args, loop, ws):
 # ------------------------------------------------------------
 # SERVER START
 # ------------------------------------------------------------
+
+# Start server
 def start_server():
     uvicorn.run(
         app,
@@ -304,7 +319,7 @@ if __name__ == "__main__":
         webview.start()
 
     except Exception as e:
-        safe_print("\n⚠️ GUI non disponibile, apro il browser")
+        safe_print("\n⚠️ GUI not available, opening browser")
         safe_print(str(e))
         webbrowser.open("http://127.0.0.1:8000")
 

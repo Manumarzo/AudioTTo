@@ -16,47 +16,48 @@ from tqdm import tqdm
 import fitz 
 
 # --- FIX WINDOWS ENCODING ---
-# Handled in __main__ and gui_app.py
+# Small fix for windows UTF-8 encoding issues
+# Try to print the text, if it fails, do nothing
 # ------------------------------------------------------------
 def safe_print(text):
     try: print(text)
     except: pass
 
-# --- CONFIGURAZIONE PATH E BINARI ---
-
+# --- PATH AND BINARIES CONFIGURATION ---
+# Getting the FFMPEG and FFPROBE paths
+# ------------------------------------------------
 def resource_path(relative_path):
-    """ Ottiene il percorso assoluto delle risorse, funzionante sia in Dev che in EXE (PyInstaller) """
+    """ Get the absolute path of the resource, working both in Dev and EXE (PyInstaller) """
     if hasattr(sys, '_MEIPASS'):
-        # PyInstaller crea una cartella temporanea in _MEIPASS
+        # PyInstaller creates a temporary folder in _MEIPASS
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.join(os.path.abspath("."), relative_path)
 
 def configure_ffmpeg():
-    """ Configura pydub per usare ffmpeg incluso nel pacchetto """
+    """ Configure pydub to use ffmpeg included in the package """
     
-    # Determina i nomi dei file in base all'OS
+    # Determine file names based on OS
     if sys.platform == "win32":
         ffmpeg_name = "ffmpeg.exe"
         ffprobe_name = "ffprobe.exe"
     else:
         ffmpeg_name = "ffmpeg"
         ffprobe_name = "ffprobe"
-
-    # PyInstaller con il nostro spec mette i file nella root o in bin/ (dipende dal dest in spec)
-    # Nel build.spec abbiamo messo destination='.', quindi sono nella root di _MEIPASS
+    
+    # Paths for the executable
     ffmpeg_path = resource_path(ffmpeg_name)
     ffprobe_path = resource_path(ffprobe_name)
 
-    # Fallback: Se non siamo in EXE e i file non sono nella root, cerchiamo in bin/ (per sviluppo)
+    # Fallback: If we are not in EXE and the files are not in the root, we look for them in bin/ (for development)
     if not os.path.exists(ffmpeg_path):
         ffmpeg_path = resource_path(os.path.join("bin", ffmpeg_name))
         ffprobe_path = resource_path(os.path.join("bin", ffprobe_name))
 
-    # Configura Pydub
+    # Configure Pydub
     if os.path.exists(ffmpeg_path):
         AudioSegment.converter = ffmpeg_path
         AudioSegment.ffprobe = ffprobe_path
-        # Aggiungi al PATH di sistema per subprocess calls dirette
+        # Add to the PATH of the system for subprocess calls
         os.environ["PATH"] += os.pathsep + os.path.dirname(ffmpeg_path)
     else:
         safe_print("⚠️ Warning: FFmpeg binaries not found in bundle. Using system default.")
@@ -70,6 +71,7 @@ def set_logger(callback):
     logger_callback = callback
 
 def log(*args, **kwargs):
+    """ Log a message to the console or to the logger callback, usefull for user interactions """
     msg = " ".join(map(str, args))
     if logger_callback:
         logger_callback(msg)
@@ -77,6 +79,7 @@ def log(*args, **kwargs):
         print(msg, flush=True, **kwargs)
 
 class ProgressLogger:
+    """ Custom logger for progress output """
     def write(self, buf):
         if buf.strip():
             if logger_callback:
@@ -90,10 +93,10 @@ class ProgressLogger:
 
 warnings.filterwarnings("ignore", category=UserWarning, module='ctranslate2')
 
-# Load environment variables
+# Load environment variables (GEMINI_API_KEY, N_THREADS, etc.)
 load_dotenv()
 
-# --- ESEGUIAMO LA CONFIGURAZIONE ---
+# --- Configure FFmpeg ---
 configure_ffmpeg() 
 
 # ---------------- CONFIG ----------------
@@ -107,6 +110,7 @@ model = "gemini-3-flash-preview"
 model_worker = None
 
 def init_worker(queue=None):
+    """ Initialize the Whisper model worker """
     global model_worker, progress_queue
     model_worker = WhisperModel(MODEL_SIZE, device="cpu", compute_type=COMPUTE_TYPE)
     if queue:
@@ -180,12 +184,10 @@ def create_output_folder(audio_path: str) -> str:
 def split_audio(audio_path: str, chunk_len_ms: int, output_dir: str) -> list:
     log(f"🔪 Splitting audio into {chunk_len_ms // 60000}-minute chunks...")
     
-    # WORKAROUND: pydub requires ffprobe for non-wav files, but imageio-ffmpeg only provides ffmpeg.
-    # We manually convert to WAV using the available ffmpeg binary to avoid WinError 2.
     temp_wav = os.path.join(output_dir, "temp_conversion.wav")
     
     try:
-        # Check if already wav to skip conversion (optional, but safer to just normalize)
+        # Check if already wav to skip conversion
         if not audio_path.lower().endswith(".wav"):
             log("   - Converting to WAV for processing...")
             cmd = [
@@ -203,12 +205,11 @@ def split_audio(audio_path: str, chunk_len_ms: int, output_dir: str) -> list:
         else:
             audio_source = audio_path
 
-        # Now load from WAV (native python support, no ffprobe needed)
+        # Now load from WAV
         audio = AudioSegment.from_wav(audio_source)
 
     except subprocess.CalledProcessError as e:
         log(f"❌ FFmpeg conversion failed: {e}")
-        # Try fall back to direct load if conversion failed? Most likely will fail again but worth a shot
         audio = AudioSegment.from_file(audio_path)
     except Exception as e:
         log(f"⚠️ Error loading audio: {e}. Trying callback...")
@@ -220,7 +221,6 @@ def split_audio(audio_path: str, chunk_len_ms: int, output_dir: str) -> list:
         chunk_path = os.path.join(output_dir, f"chunk_{i//chunk_len_ms}.wav")
         chunk.export(chunk_path, format="wav")
         chunks.append(chunk_path)
-    
     
     # Cleanup temp wav
     if os.path.exists(temp_wav):
@@ -234,7 +234,7 @@ def split_audio(audio_path: str, chunk_len_ms: int, output_dir: str) -> list:
 
 
 def transcribe_chunk_worker(chunk_path: str):
-    # Use Segments to track progress
+    """ Transcribe a single chunk using the Whisper model """
     segments, info = model_worker.transcribe(chunk_path, language=LANGUAGE)
     
     full_text = []
@@ -246,26 +246,18 @@ def transcribe_chunk_worker(chunk_path: str):
                 duration = segment.end - segment.start
                 progress_queue.put(duration)
     except Exception as e:
-        # In case of error, just log and continue/return partial
         pass
         
     return " ".join(full_text), info.language
 
 
 def transcribe_chunks_local_parallel(chunks: list, num_workers: int):
+    """ Transcribe chunks using multiple CPU cores """
     log(f"🚀 Starting parallel transcription on {num_workers} CPU cores...")
 
     texts = []
     langs = []
 
-    # Usa tqdm per mostrare la barra di avanzamento
-    # file=ProgressLogger() reindirizza l'output al nostro callback (WebSocket o Stderr)
-
-    # 1. Calcola durata totale REALE per la progress bar
-    # Invece di stimare, misuriamo la durata dei chunk generati.
-    # pydub.AudioSegment.from_file(chunk_path).duration_seconds è preciso ma lento se riapriamo.
-    # Ma dato che `split_audio` è appena finito, possiamo assumere che i chunk siano corretti.
-    # Facciamo una lettura rapida dei file wav (headers).
     import wave
     total_estimated_seconds = 0.0
     for c in chunks:
@@ -283,20 +275,16 @@ def transcribe_chunks_local_parallel(chunks: list, num_workers: int):
     manager = multiprocessing.Manager()
     queue = manager.Queue()
     
-    # Thread per monitorare la queue e aggiornare tqdm
+    # Function to monitor progress and update tqdm (progressbar)
     def monitor_progress(q, total_sec):
-        # Use simple block characters for cleaner UI
         pbar = tqdm(total=total_sec, file=ProgressLogger(), desc="Transcribing", unit="s", 
                    bar_format="{l_bar}{bar}| {n:.1f}/{total_fmt} [{elapsed}<{remaining}]",
                    ascii=" █")
         processed_sec = 0
         while True:
             try:
-                # Blocca per un po', se niente arriva controlla se main ha finito (ma qui usiamo sentinel o daemon)
-                # Semplifichiamo: usiamo timeout e un flag esterno o sentinel
                 duration = q.get(timeout=0.5)
                 if duration == "DONE":
-                    # Force update to 100% (handle silence skipping)
                     remaining = total_sec - pbar.n
                     if remaining > 0:
                         pbar.update(remaining)
@@ -318,7 +306,6 @@ def transcribe_chunks_local_parallel(chunks: list, num_workers: int):
 
     try:
         with multiprocessing.Pool(processes=num_workers, initializer=init_worker, initargs=(queue,)) as pool:
-            # Non usiamo più tqdm qui direttamente come wrapper, lasciamo fare al thread monitor
             results = pool.map(transcribe_chunk_worker, chunks)
             
             for text, lang in results:
@@ -326,7 +313,6 @@ def transcribe_chunks_local_parallel(chunks: list, num_workers: int):
                 langs.append(lang)
     finally:
         all_done_event.set()
-        # Ensure monitor thread finishes
         queue.put("DONE") 
         monitor_thread.join() 
 
@@ -413,7 +399,6 @@ TRANSCRIPTION:
         # Check for safety blocks or empty response
         if not response.text:
              log(f"⚠️ Gemini response was empty. Feedback: {response.prompt_feedback if hasattr(response, 'prompt_feedback') else 'Unknown'}")
-             # Tenta di prendere candidati se esistono
              if response.candidates:
                  log(f"⚠️ Candidates found: {len(response.candidates)}. Finish reason: {response.candidates[0].finish_reason}")
              return ""
@@ -560,33 +545,27 @@ def main(args_list=None):
     parser.add_argument("--pages", help="Page range (e.g., '5-12').")
     parser.add_argument("--threads", type=int, default=N_THREADS)
     
-    # MODIFICA: Se args_list è popolato (chiamata dalla GUI), usa quello.
-    # Altrimenti, se è None, argparse leggerà automaticamente sys.argv (chiamata da terminale).
+    # If args_list is provided, use it; otherwise, use sys.argv
     if args_list:
         args = parser.parse_args(args_list)
     else:
         args = parser.parse_args()
 
-    # Creazione cartelle e inizializzazione variabili
+    # Folder creation and variable initialization
     output_dir = create_output_folder(args.file_audio)
     base_name = os.path.splitext(os.path.basename(args.file_audio))[0]
     temp_files = []
     succeeded = False
 
     try:
-        # 1. Elaborazione Slide
+        # 1. Slide processing
         slides_images = process_slides(args.slides, args.pages)
 
-        # 2. Pulizia Audio (Denoising)
-        # 2. (Skipped) Pulizia Audio (Denoising rimosso come richiesto)
-        # clean_audio = denoise_audio(args.file_audio, output_dir)
-        # temp_files.append(clean_audio)
-
-        # 3. Splitting Audio in chunk
+        # 2. Splitting Audio in chunk
         chunks = split_audio(args.file_audio, CHUNK_LENGTH_MS_LOCAL, output_dir)
         temp_files.extend(chunks)
 
-        # 4. Trascrizione (Parallela se ci sono chunk multipli)
+        # 3. Transcription (Parallel if multiple chunks)
         num_workers = min(args.threads, len(chunks)) if chunks else 0
         transcript, audio_lang = transcribe_chunks_local_parallel(chunks, num_workers)
 
@@ -594,18 +573,18 @@ def main(args_list=None):
             log("⚠️ Transcription is empty. Stopping.")
             return
 
-        # 5. Salvataggio file di testo trascrizione
+        # 4. Saving transcription text file
         transcript_file = os.path.join(output_dir, f"{base_name}_trascrizione.txt")
         with open(transcript_file, "w", encoding="utf-8") as f:
             f.write(transcript)
         log(f"💾 Transcription saved at: {transcript_file}")
         log(f"🌍 Detected language: {audio_lang}")
 
-        # 6. Generazione LaTeX tramite LLM (Gemini)
+        # 5. LaTeX generation through LLM (Gemini)
         latex_doc = generate_latex_document(transcript, base_name, slides_images, audio_lang)
 
         if latex_doc:
-            # 6b. Revisione Automatica (Convalida Concettuale e Codice)
+            # 6. Automatic review (Conceptual and Code Validation)
             latex_doc = review_latex_content(latex_doc)
             
             tex_path = os.path.join(output_dir, f"{base_name}_appunti.tex")
@@ -614,18 +593,18 @@ def main(args_list=None):
 
             log(f"📝 LaTeX file created: {tex_path}")
 
-            # 7. Compilazione PDF (pdflatex)
+            # 7. PDF compilation (pdflatex)
             if compile_pdf(tex_path):
                 succeeded = True
         else:
             log("❌ Failed to generate LaTeX document (AI response was empty or error).")
 
     except Exception as e:
-        # Cattura errori generici per evitare crash silenziosi della GUI
+        # Generic error capture to avoid silent GUI crashes
         log(f"❌ Critical Error during execution: {e}")
 
     finally:
-        # Pulizia file temporanei audio
+        # 8. Removing intermediate audio files
         log("\n🧹 Removing intermediate audio files...")
         for f_path in temp_files:
             try:
@@ -634,7 +613,7 @@ def main(args_list=None):
             except Exception as e:
                 log(f"   - Error deleting {f_path}: {e}")
 
-        # Pulizia file temporanei LaTeX
+        # 9. Cleaning LaTeX compilation files
         log("🧹 Cleaning LaTeX compilation files...")
         for ext in ['.aux', '.log', '.out', '.fls', '.fdb_latexmk']:
             tmp = os.path.join(output_dir, f"{base_name}_appunti{ext}")
@@ -645,7 +624,7 @@ def main(args_list=None):
             except Exception as e:
                 log(f"   - Error deleting {tmp}: {e}")
 
-        # Pulizia finale cartella output (se successo, cancella anche tex e txt per ordine, se vuoi)
+        # 10. Final cleanup
         if succeeded:
             cleanup_output(output_dir, base_name)
 
@@ -655,8 +634,8 @@ def main(args_list=None):
 
 
 if __name__ == "__main__":
-    # Fix obbligatorio per Multiprocessing su Windows quando si crea un EXE
-    # Also apply encoding fix for standalone execution
+
+    # Fix for Multiprocessing on Windows when creating an EXE
     if sys.platform == "win32":
         os.environ["PYTHONIOENCODING"] = "utf-8"
         if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
@@ -665,8 +644,9 @@ if __name__ == "__main__":
         if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
             try: sys.stderr.reconfigure(encoding='utf-8', errors='replace')
             except: pass
-    # Fix obbligatorio per Multiprocessing su Windows quando si crea un EXE
+    
     if sys.platform in ["win32", "darwin"]:
         multiprocessing.freeze_support()
         multiprocessing.set_start_method('spawn', force=True)
+    
     main()
