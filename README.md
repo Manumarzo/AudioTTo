@@ -51,7 +51,11 @@
 
 ## 🎥 Tutorial
 
-Coming soon!
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/4d3cab13-9cc4-4f90-8ee9-5fe8dbe2b6e4" width="600" controls>
+    Il tuo browser non supporta il tag video.
+  </video>
+</div>
 
 ---
 
