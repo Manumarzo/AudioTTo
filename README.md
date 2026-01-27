@@ -49,6 +49,16 @@
 
 ---
 
+## 🎥 Tutorial
+
+<p align="center">
+  <video src="logo/Tutorial_Audiotto.mp4" controls="controls" style="max-width: 100%;">
+    Your browser does not support the video tag.
+  </video>
+</p>
+
+---
+
 ## 🛠️ Prerequisites
 
 Before you begin, ensure you have the following:
