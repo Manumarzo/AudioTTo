@@ -133,7 +133,7 @@ if sys.platform == 'darwin':
         exe,
         name='AudioTTo.app',
         icon='logo/logo_app.icns',
-        bundle_identifier='com.emanuele.audiotto',
+        bundle_identifier='com.manumarzo.audiotto',
         info_plist={
             'NSHighResolutionCapable': 'True'
         },
