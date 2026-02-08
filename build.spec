@@ -1,145 +1,105 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import collect_all, copy_metadata
+
+from PyInstaller.utils.hooks import collect_all
 import sys
 import os
 
 block_cipher = None
+is_macos = sys.platform == "darwin"
 
-# ---------- OS DETECTION ----------
-if sys.platform == 'win32':
-    ffmpeg_bin = 'ffmpeg.exe'
-    ffprobe_bin = 'ffprobe.exe'
-else:
-    ffmpeg_bin = 'ffmpeg'
-    ffprobe_bin = 'ffprobe'
+APP_NAME = "AudioTTo"
 
-bin_path = 'bin'
-
-# ---------- DATA ----------
+# -------------------------
+# Risorse
+# -------------------------
 datas = [
-    ('web', 'web'),
-    ('logo', 'logo'),
+    ("web", "web"),
+    ("logo", "logo"),
 ]
 
-binaries = [
-    (os.path.join(bin_path, ffmpeg_bin), '.'),
-    (os.path.join(bin_path, ffprobe_bin), '.'),
-]
+binaries = []
 
-# ---------- HIDDEN IMPORTS ----------
+bin_path = "bin"
+
+if is_macos:
+    binaries += [
+        (os.path.join(bin_path, "ffmpeg"), "bin"),
+        (os.path.join(bin_path, "ffprobe"), "bin"),
+    ]
+else:
+    binaries += [
+        (os.path.join(bin_path, "ffmpeg.exe"), "."),
+        (os.path.join(bin_path, "ffprobe.exe"), "."),
+    ]
+
+# -------------------------
+# Import nascosti
+# -------------------------
 hiddenimports = [
-    'uvicorn.logging',
-    'uvicorn.loops',
-    'uvicorn.loops.auto',
-    'uvicorn.loops.asyncio',
-    'uvicorn.protocols',
-    'uvicorn.protocols.http',
-    'uvicorn.protocols.http.auto',
-    'uvicorn.protocols.websockets',
-    'uvicorn.protocols.websockets.auto',
-    'uvicorn.lifespan',
-    'uvicorn.lifespan.on',
-
-    'fastapi',
-    'starlette',
-    'pydantic',
-
-    'python_multipart',
-    'dotenv',
-    'fitz',
-    'webview',
-
-    # Windows
-    'clr_loader',
-    'pythonnet',
-    'System',
-    'System.Windows.Forms',
-
-    # AI / Audio
-    'faster_whisper',
+    "fastapi",
+    "uvicorn",
+    "starlette",
+    "pydantic",
+    "webview",
+    "faster_whisper",
 ]
 
-# ---------- COLLECT PACKAGES ----------
-for pkg in ['faster_whisper', 'pythonnet', 'clr_loader', 'pywebview', 'av']:
-    tmp = collect_all(pkg)
-    datas += tmp[0]
-    binaries += tmp[1]
-    hiddenimports += tmp[2]
+for pkg in ["faster_whisper", "pywebview", "av"]:
+    d, b, h = collect_all(pkg)
+    datas += d
+    binaries += b
+    hiddenimports += h
 
-# ---------- METADATA ----------
-packages_to_copy = [
-    'tqdm',
-    'regex',
-    'requests',
-    'packaging',
-    'filelock',
-    'huggingface_hub',
-    'google-genai',
-    'numpy',
-    'uvicorn',
-    'fastapi',
-    'av'
-]
-
-for pkg in packages_to_copy:
-    try:
-        datas += copy_metadata(pkg)
-    except Exception:
-        print(f"[WARNING] Metadata not found for {pkg}")
-
-# ---------- ANALYSIS ----------
+# -------------------------
+# Analisi
+# -------------------------
 a = Analysis(
-    ['gui_app.py'],
+    ["gui_app.py"],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
-    excludes=[
-        'torch',
-        'noisereduce',
-        'scipy',
-        'matplotlib',
-        'tkinter', 'tcl', 'tk'
-    ],
-    noarchive=False,
+    excludes=["tkinter", "torch"],
+    cipher=block_cipher,
 )
 
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+pyz = PYZ(a.pure, cipher=block_cipher)
 
+# -------------------------
+# EXE 
+# -------------------------
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    [],
-    name='AudioTTo',
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=False,  # Disabilitato per evitare problemi con antivirus
-    upx_exclude=[],
-    runtime_tmpdir=None,
-    console=True,  # Mostra console per debug
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-    icon='logo/logo_app.ico',
+    exclude_binaries=True,
+    name=APP_NAME,
+    console=True,
 )
 
-if sys.platform == 'darwin':
+# -------------------------
+# OUTPUT
+# -------------------------
+if is_macos:
     app = BUNDLE(
         exe,
-        name='AudioTTo.app',
-        icon='logo/logo_app.icns',
-        bundle_identifier='com.manumarzo.audiotto',
+        a.binaries,
+        a.datas,
+        name=f"{APP_NAME}.app",
+        icon="logo/logo_app.icns",
+        bundle_identifier="com.manumarzo.audiotto",
         info_plist={
-            'NSHighResolutionCapable': 'True',
-            'CFBundleName': 'AudioTTo',
-            'CFBundleDisplayName': 'AudioTTo',
-            'CFBundleVersion': '1.0.0',
-            'CFBundleShortVersionString': '1.0.0',
-            'NSRequiresAquaSystemAppearance': 'False',
+            "CFBundleName": APP_NAME,
+            "CFBundleDisplayName": APP_NAME,
+            "CFBundleShortVersionString": "1.0.0",
+            "CFBundleVersion": "1.0.0",
+            "NSHighResolutionCapable": True,
         },
+    )
+else:
+    coll = COLLECT(
+        exe,
+        a.binaries,
+        a.datas,
+        strip=False,
+        upx=True,
+        name=APP_NAME,
     )
