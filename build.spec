@@ -36,10 +36,15 @@ if is_macos:
         (os.path.join(bin_path, "ffmpeg"), "bin"),
         (os.path.join(bin_path, "ffprobe"), "bin"),
     ]
-else:
+elif is_windows:
     binaries += [
         (os.path.join(bin_path, "ffmpeg.exe"), "."),
         (os.path.join(bin_path, "ffprobe.exe"), "."),
+    ]
+else:  # Linux
+    binaries += [
+        (os.path.join(bin_path, "ffmpeg"), "."),
+        (os.path.join(bin_path, "ffprobe"), "."),
     ]
 
 # -------------------------
