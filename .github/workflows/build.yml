@@ -10,7 +10,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest]
 
     runs-on: ${{ matrix.os }}
 
@@ -40,14 +40,6 @@ jobs:
           mkdir -p bin
           cp /usr/bin/ffmpeg bin/ffmpeg
           cp /usr/bin/ffprobe bin/ffprobe
-
-      - name: Setup FFmpeg (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          mkdir bin
-          choco install ffmpeg -y
-          copy "C:\Program Files\ffmpeg\bin\ffmpeg.exe" bin\
-          copy "C:\Program Files\ffmpeg\bin\ffprobe.exe" bin\
 
       - name: Setup FFmpeg (macOS)
         if: runner.os == 'macOS'
