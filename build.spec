@@ -6,8 +6,19 @@ import os
 
 block_cipher = None
 is_macos = sys.platform == "darwin"
+is_windows = sys.platform == "win32"
 
 APP_NAME = "AudioTTo"
+
+# -------------------------
+# Icone per OS
+# -------------------------
+if is_windows:
+    APP_ICON = "logo/logo_app.ico"
+elif is_macos:
+    APP_ICON = "logo/logo_app.icns"
+else:
+    APP_ICON = "logo/logo_app.png"
 
 # -------------------------
 # Risorse
@@ -18,7 +29,6 @@ datas = [
 ]
 
 binaries = []
-
 bin_path = "bin"
 
 if is_macos:
@@ -65,7 +75,7 @@ a = Analysis(
 pyz = PYZ(a.pure, cipher=block_cipher)
 
 # -------------------------
-# EXE 
+# EXE
 # -------------------------
 exe = EXE(
     pyz,
@@ -73,6 +83,7 @@ exe = EXE(
     exclude_binaries=True,
     name=APP_NAME,
     console=True,
+    icon=None if is_macos else APP_ICON,
 )
 
 # -------------------------
@@ -84,7 +95,7 @@ if is_macos:
         a.binaries,
         a.datas,
         name=f"{APP_NAME}.app",
-        icon="logo/logo_app.icns",
+        icon=APP_ICON,
         bundle_identifier="com.manumarzo.audiotto",
         info_plist={
             "CFBundleName": APP_NAME,
