@@ -20,9 +20,6 @@ jobs:
           - os: macos-latest
             artifact_name: AudioTTo_MacOS
 
-          - os: windows-latest
-            artifact_name: AudioTTo_Windows
-
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
@@ -85,29 +82,6 @@ jobs:
         chmod +x bin/ffmpeg bin/ffprobe
         ls -l bin/
 
-    # ---------- FFMPEG WINDOWS (ROBUST FIX) ----------
-    - name: Download FFmpeg (Windows)
-      if: runner.os == 'Windows'
-      shell: powershell
-      run: |
-        Invoke-WebRequest `
-          -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" `
-          -OutFile "ffmpeg.zip"
-
-        Expand-Archive -Path "ffmpeg.zip" -DestinationPath "ffmpeg"
-
-        $ffmpegExe = Get-ChildItem -Recurse -Filter ffmpeg.exe | Select-Object -First 1
-        $ffprobeExe = Get-ChildItem -Recurse -Filter ffprobe.exe | Select-Object -First 1
-
-        if (-not $ffmpegExe -or -not $ffprobeExe) {
-          Write-Error "FFmpeg binaries not found"
-          exit 1
-        }
-
-        Move-Item $ffmpegExe.FullName bin\ffmpeg.exe
-        Move-Item $ffprobeExe.FullName bin\ffprobe.exe
-        Get-ChildItem bin
-
     # ---------- BUILD ----------
     - name: Build with PyInstaller
       run: pyinstaller build.spec
@@ -121,19 +95,6 @@ jobs:
         echo "================================"
 
     # ---------- PACKAGE & UPLOAD ----------
-    - name: Package Windows Build
-      if: runner.os == 'Windows'
-      shell: powershell
-      run: |
-        # Windows crea un singolo .exe
-        if (Test-Path "dist\AudioTTo.exe") {
-          Compress-Archive -Path "dist\AudioTTo.exe" -DestinationPath "AudioTTo_Windows.zip"
-          Write-Host "✓ Windows build packaged successfully"
-        } else {
-          Write-Error "AudioTTo.exe not found in dist/"
-          exit 1
-        }
-
     - name: Package macOS Build
       if: runner.os == 'macOS'
       run: |
@@ -161,13 +122,6 @@ jobs:
           echo "ERROR: AudioTTo executable not found in dist/"
           exit 1
         fi
-
-    - name: Upload Windows Artifact
-      if: runner.os == 'Windows'
-      uses: actions/upload-artifact@v4
-      with:
-        name: AudioTTo_Windows
-        path: AudioTTo_Windows.zip
 
     - name: Upload macOS Artifact
       if: runner.os == 'macOS'
