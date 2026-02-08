@@ -112,9 +112,73 @@ jobs:
     - name: Build with PyInstaller
       run: pyinstaller build.spec
 
-    # ---------- UPLOAD ----------
-    - name: Upload Artifact
+    # ---------- VERIFY BUILD ----------
+    - name: List dist contents (debug)
+      shell: bash
+      run: |
+        echo "=== Contents of dist/ folder ==="
+        ls -lah dist/
+        echo "================================"
+
+    # ---------- PACKAGE & UPLOAD ----------
+    - name: Package Windows Build
+      if: runner.os == 'Windows'
+      shell: powershell
+      run: |
+        # Windows crea un singolo .exe
+        if (Test-Path "dist\AudioTTo.exe") {
+          Compress-Archive -Path "dist\AudioTTo.exe" -DestinationPath "AudioTTo_Windows.zip"
+          Write-Host "✓ Windows build packaged successfully"
+        } else {
+          Write-Error "AudioTTo.exe not found in dist/"
+          exit 1
+        }
+
+    - name: Package macOS Build
+      if: runner.os == 'macOS'
+      run: |
+        # macOS crea un .app bundle
+        if [ -d "dist/AudioTTo.app" ]; then
+          cd dist
+          zip -r ../AudioTTo_MacOS.zip AudioTTo.app
+          cd ..
+          echo "✓ macOS build packaged successfully"
+        else
+          echo "ERROR: AudioTTo.app not found in dist/"
+          exit 1
+        fi
+
+    - name: Package Linux Build
+      if: runner.os == 'Linux'
+      run: |
+        # Linux crea un singolo eseguibile
+        if [ -f "dist/AudioTTo" ]; then
+          cd dist
+          tar -czf ../AudioTTo_Linux.tar.gz AudioTTo
+          cd ..
+          echo "✓ Linux build packaged successfully"
+        else
+          echo "ERROR: AudioTTo executable not found in dist/"
+          exit 1
+        fi
+
+    - name: Upload Windows Artifact
+      if: runner.os == 'Windows'
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.artifact_name }}
-        path: dist/AudioTTo
+        name: AudioTTo_Windows
+        path: AudioTTo_Windows.zip
+
+    - name: Upload macOS Artifact
+      if: runner.os == 'macOS'
+      uses: actions/upload-artifact@v4
+      with:
+        name: AudioTTo_MacOS
+        path: AudioTTo_MacOS.zip
+
+    - name: Upload Linux Artifact
+      if: runner.os == 'Linux'
+      uses: actions/upload-artifact@v4
+      with:
+        name: AudioTTo_Linux
+        path: AudioTTo_Linux.tar.gz

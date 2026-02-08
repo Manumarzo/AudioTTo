@@ -116,10 +116,10 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,  # Disabilitato per evitare problemi con antivirus
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,
+    console=True,  # Mostra console per debug
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
@@ -135,6 +135,11 @@ if sys.platform == 'darwin':
         icon='logo/logo_app.icns',
         bundle_identifier='com.manumarzo.audiotto',
         info_plist={
-            'NSHighResolutionCapable': 'True'
+            'NSHighResolutionCapable': 'True',
+            'CFBundleName': 'AudioTTo',
+            'CFBundleDisplayName': 'AudioTTo',
+            'CFBundleVersion': '1.0.0',
+            'CFBundleShortVersionString': '1.0.0',
+            'NSRequiresAquaSystemAppearance': 'False',
         },
     )

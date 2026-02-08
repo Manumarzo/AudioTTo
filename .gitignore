@@ -2,6 +2,7 @@ audio/
 output/
 slides/
 .venv/
+venv/
 .env
 build/
 dist/
