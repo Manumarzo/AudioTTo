@@ -94,6 +94,14 @@ jobs:
         ls -lah dist/
         echo "================================"
 
+    # ---------- FIX MACOS PERMISSIONS ----------
+    - name: Fix macOS App Permissions
+      if: runner.os == 'macOS'
+      run: |
+        # Assicura che l'eseguibile abbia permessi di esecuzione
+        chmod +x dist/AudioTTo.app/Contents/MacOS/AudioTTo
+        echo "✓ macOS executable permissions set"
+
     # ---------- UPLOAD ----------
     - name: Upload macOS Artifact
       if: runner.os == 'macOS'
