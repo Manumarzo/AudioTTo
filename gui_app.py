@@ -212,22 +212,41 @@ async def upload(file: UploadFile = File(...)):
 @app.websocket("/ws/process")
 async def process_ws(ws: WebSocket):
     await ws.accept()
+    extracted_audio_path = None  # Track temp WAV created from video
     try:
         data = await ws.receive_json()
         audio = data.get("audio_filename")
+        video = data.get("video_filename")
         slides = data.get("slides_filename")
         pages = data.get("pages")
         threads = data.get("threads")
 
-        if not audio:
-            await ws.send_text("❌ No audio file")
+        if not audio and not video:
+            await ws.send_text("❌ No audio or video file provided")
             return
 
         if not os.getenv("GEMINI_API_KEY"):
             await ws.send_text("❌ API key missing")
             return
 
-        args = [os.path.join("temp_uploads", audio)]
+        # If a video was provided, extract audio from it first
+        if video:
+            video_path = os.path.join("temp_uploads", video)
+            await ws.send_text(f"🎬 Extracting audio from video: {video}...")
+
+            import AudioTTo as _at
+            loop = asyncio.get_running_loop()
+            try:
+                extracted_audio_path = await asyncio.to_thread(_at.extract_audio_from_video, video_path)
+                audio_path = extracted_audio_path
+                await ws.send_text(f"✅ Audio extracted: {os.path.basename(audio_path)}")
+            except Exception as e:
+                await ws.send_text(f"❌ Video extraction failed: {e}")
+                return
+        else:
+            audio_path = os.path.join("temp_uploads", audio)
+
+        args = [audio_path]
         if slides:
             args += ["--slides", os.path.join("temp_uploads", slides)]
         if pages:
@@ -248,10 +267,17 @@ async def process_ws(ws: WebSocket):
     except Exception as e:
         await ws.send_text(f"❌ Error: {e}")
     finally:
+        # Clean up extracted audio WAV if we created one
+        if extracted_audio_path and os.path.exists(extracted_audio_path):
+            try:
+                os.remove(extracted_audio_path)
+            except Exception:
+                pass
         try:
             await ws.close()
         except:
             pass
+
 
 
 def run_audiotto(args, loop, ws):

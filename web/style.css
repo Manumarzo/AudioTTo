@@ -105,8 +105,12 @@ h1 {
 }
 
 .drop-zone .icon {
-    font-size: 3rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 60px;
     margin-bottom: 1rem;
+    color: var(--accent-color);
 }
 
 .drop-zone h3 {

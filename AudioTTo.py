@@ -62,6 +62,42 @@ def configure_ffmpeg():
     else:
         safe_print("⚠️ Warning: FFmpeg binaries not found in bundle. Using system default.")
 
+# ---------------- VIDEO EXTRACTION ----------------
+def extract_audio_from_video(video_path: str) -> str:
+    """
+    Extracts audio from a video file using the bundled FFmpeg.
+    Returns the path to the extracted WAV file (mono, 16 kHz).
+    The caller is responsible for deleting the returned file when done.
+    """
+    configure_ffmpeg()  # Ensure FFmpeg is set up (safe to call multiple times)
+
+    base_name = os.path.splitext(os.path.basename(video_path))[0]
+    output_dir = os.path.dirname(video_path) or "."
+    wav_path = os.path.join(output_dir, f"{base_name}_extracted.wav")
+
+    ffmpeg_bin = AudioSegment.converter
+    if not ffmpeg_bin or not os.path.exists(ffmpeg_bin):
+        # Fallback to system ffmpeg
+        ffmpeg_bin = "ffmpeg"
+
+    cmd = [
+        ffmpeg_bin,
+        "-y",           # Overwrite output
+        "-i", video_path,
+        "-vn",          # No video
+        "-ac", "1",     # Mono
+        "-ar", "16000", # 16 kHz (optimal for Whisper)
+        wav_path
+    ]
+
+    try:
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"FFmpeg audio extraction failed: {e.stderr.decode(errors='replace')}")
+
+    return wav_path
+
+
 # Logger Setup
 logger_callback = None
 progress_queue = None

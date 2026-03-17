@@ -8,3 +8,4 @@ dist/
 temp_uploads/
 __pycache__/
 bin/
+venv/

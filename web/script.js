@@ -1,7 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
     const audioDropZone = document.getElementById('audio-drop-zone');
+    const videoDropZone = document.getElementById('video-drop-zone');
     const pdfDropZone = document.getElementById('pdf-drop-zone');
     const audioInput = document.getElementById('audio-input');
+    const videoInput = document.getElementById('video-input');
     const pdfInput = document.getElementById('pdf-input');
     const startBtn = document.getElementById('start-btn');
     const pagesInput = document.getElementById('pages-input');
@@ -32,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     let audioFile = null;
+    let videoFile = null;
     let pdfFile = null;
     let ws = null;
 
@@ -295,11 +298,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (type === 'audio') {
                 // Check MIME type OR extension
-                const allowedExtensions = ['.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.wma'];
+                const allowedExtensions = ['.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.wma', '.opus'];
                 if (file.type.startsWith('audio/') || allowedExtensions.some(ext => fileName.endsWith(ext))) {
                     isValid = true;
                 } else {
                     showToast('Please upload a valid audio file (mp3, wav, m4a, ...).', 'error');
+                }
+            } else if (type === 'video') {
+                const allowedExtensions = ['.mp4', '.mov', '.mkv', '.avi', '.webm', '.wmv'];
+                if (file.type.startsWith('video/') || allowedExtensions.some(ext => fileName.endsWith(ext))) {
+                    isValid = true;
+                } else {
+                    showToast('Please upload a valid video file (mp4, mov, mkv, ...).', 'error');
                 }
             } else if (type === 'pdf') {
                 if (file.type === 'application/pdf' || fileName.endsWith('.pdf')) {
@@ -321,6 +331,12 @@ document.addEventListener('DOMContentLoaded', () => {
         checkStartReady();
     });
 
+    setupDragDrop(videoDropZone, videoInput, 'video', (file) => {
+        videoFile = file;
+        document.getElementById('video-file-info').textContent = `Selected file: ${file.name}`;
+        checkStartReady();
+    });
+
     setupDragDrop(pdfDropZone, pdfInput, 'pdf', (file) => {
         pdfFile = file;
         document.getElementById('pdf-file-info').textContent = `Selected file: ${file.name}`;
@@ -329,12 +345,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function checkStartReady() {
-        startBtn.disabled = !audioFile;
+        startBtn.disabled = !(audioFile || videoFile);
     }
 
     // --- Upload & Process Logic ---
     startBtn.addEventListener('click', async () => {
-        if (!audioFile) return;
+        if (!audioFile && !videoFile) return;
 
         // CHECK API KEY
         const keyData = await getKeyStatus();
@@ -350,15 +366,31 @@ document.addEventListener('DOMContentLoaded', () => {
         log("Starting file upload...");
 
         try {
-            // 1. Upload Audio
-            const audioData = new FormData();
-            audioData.append('file', audioFile);
-            const audioRes = await fetch('/upload', { method: 'POST', body: audioData });
-            if (!audioRes.ok) throw new Error("Audio upload error");
-            const audioJson = await audioRes.json();
-            log(`Audio uploaded: ${audioJson.filename}`);
+            // 1. Upload Audio (if provided)
+            let audioFilename = null;
+            if (audioFile) {
+                const audioData = new FormData();
+                audioData.append('file', audioFile);
+                const audioRes = await fetch('/upload', { method: 'POST', body: audioData });
+                if (!audioRes.ok) throw new Error("Audio upload error");
+                const audioJson = await audioRes.json();
+                audioFilename = audioJson.filename;
+                log(`Audio uploaded: ${audioFilename}`);
+            }
 
-            // 2. Upload PDF (if any)
+            // 2. Upload Video (if provided)
+            let videoFilename = null;
+            if (videoFile) {
+                const videoData = new FormData();
+                videoData.append('file', videoFile);
+                const videoRes = await fetch('/upload', { method: 'POST', body: videoData });
+                if (!videoRes.ok) throw new Error("Video upload error");
+                const videoJson = await videoRes.json();
+                videoFilename = videoJson.filename;
+                log(`Video uploaded: ${videoFilename}`);
+            }
+
+            // 3. Upload PDF (if any)
             let pdfFilename = null;
             if (pdfFile) {
                 const pdfData = new FormData();
@@ -370,8 +402,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 log(`PDF uploaded: ${pdfFilename}`);
             }
 
-            // 3. Connect WebSocket & Start Process
-            startWebSocket(audioJson.filename, pdfFilename, pagesInput.value);
+            // 4. Connect WebSocket & Start Process
+            startWebSocket(audioFilename, videoFilename, pdfFilename, pagesInput.value);
 
         } catch (err) {
             log(`❌ Errore: ${err.message}`);
@@ -381,7 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    function startWebSocket(audioName, pdfName, pages) {
+    function startWebSocket(audioName, videoName, pdfName, pages) {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         ws = new WebSocket(`${protocol}//${window.location.host}/ws/process`);
 
@@ -392,6 +424,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Send config to start
             ws.send(JSON.stringify({
                 audio_filename: audioName,
+                video_filename: videoName,
                 slides_filename: pdfName,
                 pages: pages,
                 threads: currentThreads
@@ -408,12 +441,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Reset inputs
                 audioFile = null;
+                videoFile = null;
                 pdfFile = null;
                 audioInput.value = '';
+                videoInput.value = '';
                 pdfInput.value = '';
                 pagesInput.value = '';
                 pagesInput.disabled = true; // Disable again until new PDF
                 document.getElementById('audio-file-info').textContent = '';
+                document.getElementById('video-file-info').textContent = '';
                 document.getElementById('pdf-file-info').textContent = '';
 
                 log("Inputs cleared. Ready for new task.");
