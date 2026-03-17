@@ -153,6 +153,10 @@ h1 {
     vertical-align: middle;
 }
 
+.upload-section.is-processing .remove-file {
+    display: none;
+}
+
 .remove-file:hover {
     color: #f87171;
 }

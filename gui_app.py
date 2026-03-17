@@ -66,6 +66,13 @@ def resource_path(relative_path):
 
 web_folder = resource_path("web")
 os.makedirs(OUTPUT_ROOT, exist_ok=True)
+
+# 🔧 STARTUP CLEANUP: Reset the temp folder every time the app opens
+if os.path.exists(TEMP_UPLOADS):
+    try:
+        shutil.rmtree(TEMP_UPLOADS)
+    except Exception as e:
+        safe_print(f"Warning: Could not clear temp folder at startup: {e}")
 os.makedirs(TEMP_UPLOADS, exist_ok=True)
 
 app.mount("/static", StaticFiles(directory=web_folder), name="static")
@@ -223,7 +230,7 @@ async def upload(file: UploadFile = File(...)):
 @app.websocket("/ws/process")
 async def process_ws(ws: WebSocket):
     await ws.accept()
-    extracted_audio_path = None  # Track temp WAV created from video
+    files_to_delete = []
     try:
         data = await ws.receive_json()
         audio = data.get("audio_filename")
@@ -245,10 +252,16 @@ async def process_ws(ws: WebSocket):
             audio_path = os.path.join(TEMP_UPLOADS, video)
         else:
             audio_path = os.path.join(TEMP_UPLOADS, audio)
+        
+        if audio_path:
+            files_to_delete.append(audio_path)
 
         args = [audio_path]
         if slides:
-            args += ["--slides", os.path.join(TEMP_UPLOADS, slides)]
+            slides_path = os.path.join(TEMP_UPLOADS, slides)
+            args += ["--slides", slides_path]
+            files_to_delete.append(slides_path)
+
         if pages:
             args += ["--pages", pages]
         if threads:
@@ -267,12 +280,15 @@ async def process_ws(ws: WebSocket):
     except Exception as e:
         await ws.send_text(f"❌ Error: {e}")
     finally:
-        # Clean up extracted audio WAV if we created one
-        if extracted_audio_path and os.path.exists(extracted_audio_path):
-            try:
-                os.remove(extracted_audio_path)
-            except Exception:
-                pass
+        # 🧹 SESSION CLEANUP: Remove files immediately after processing
+        for fpath in files_to_delete:
+            if fpath and os.path.exists(fpath):
+                try:
+                    os.remove(fpath)
+                    safe_print(f"Cleanup: Removed {os.path.basename(fpath)}")
+                except Exception as e:
+                    safe_print(f"Cleanup failed for {fpath}: {e}")
+        
         try:
             await ws.close()
         except:
@@ -346,8 +362,9 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         pass
     finally:
-        if os.path.exists("temp_uploads"):
+        # 🧹 SHUTDOWN CLEANUP: Ensure absolute path is cleared
+        if os.path.exists(TEMP_UPLOADS):
             try:
-                shutil.rmtree("temp_uploads")
+                shutil.rmtree(TEMP_UPLOADS)
             except:
                 pass

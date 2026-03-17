@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let videoFile = null;
     let pdfFile = null;
     let ws = null;
+    let isProcessing = false;
 
     // --- Modal Logic ---
     function openModal() {
@@ -373,6 +374,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function checkStartReady() {
+        if (isProcessing) {
+            startBtn.disabled = true;
+            return;
+        }
+
         startBtn.disabled = !(audioFile || videoFile);
         
         // Mutue exclusion logic: disable the other zone if one is filled
@@ -389,6 +395,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function setProcessingState(active) {
+        isProcessing = active;
+        const uploadSection = document.querySelector('.upload-section');
+        
+        if (active) {
+            uploadSection.classList.add('is-processing');
+            audioDropZone.classList.add('disabled');
+            videoDropZone.classList.add('disabled');
+            pdfDropZone.classList.add('disabled');
+            pagesInput.disabled = true;
+            startBtn.disabled = true;
+        } else {
+            uploadSection.classList.remove('is-processing');
+            // Zones and inputs will reflect their correct state next
+            pdfDropZone.classList.remove('disabled');
+            if (pdfFile) pagesInput.disabled = false;
+            checkStartReady();
+        }
+    }
+
     // --- Upload & Process Logic ---
     startBtn.addEventListener('click', async () => {
         if (!audioFile && !videoFile) return;
@@ -402,6 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         startBtn.disabled = true;
+        setProcessingState(true);
         statusIndicator.textContent = 'Uploading file...';
         statusIndicator.style.color = '#fbbf24'; // Yellow
         log("Starting file upload...");
@@ -478,9 +505,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadOutputs();
                 statusIndicator.textContent = 'Completed';
                 statusIndicator.style.color = '#10b981'; // Green
-                startBtn.disabled = true; // Keep disabled until new file is selected
 
-                // Reset inputs
+                // Reset inputs FIRST
                 audioFile = null;
                 videoFile = null;
                 pdfFile = null;
@@ -493,6 +519,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('video-file-info').textContent = '';
                 document.getElementById('pdf-file-info').textContent = '';
 
+                setProcessingState(false);
+                startBtn.disabled = true; // Keep disabled until new file is selected
+
                 log("Inputs cleared. Ready for new task.");
             } else {
                 log(msg);
@@ -502,7 +531,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ws.onclose = () => {
             log("Connection closed.");
             if (statusIndicator.textContent !== 'Completed') {
-                startBtn.disabled = false;
+                setProcessingState(false);
             }
         };
 
