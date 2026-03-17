@@ -5,6 +5,7 @@ import asyncio
 import threading
 import multiprocessing
 import webbrowser
+import time
 from fastapi import FastAPI, File, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -39,23 +40,33 @@ def safe_print(msg):
 # ------------------------------------------------------------
 # FASTAPI SETUP
 # ------------------------------------------------------------
-load_dotenv()
+def get_base_dir():
+    """Restituisce la cartella dell'eseguibile o dello script, gestendo i bundle .app di macOS."""
+    if getattr(sys, 'frozen', False):
+        path = os.path.dirname(sys.executable)
+        if ".app/Contents/MacOS" in path:
+            return os.path.abspath(os.path.join(path, "../../../"))
+        return path
+    return os.path.dirname(os.path.abspath(__file__))
+
+BASE_DIR = get_base_dir()
+OUTPUT_ROOT = os.path.join(BASE_DIR, "output")
+TEMP_UPLOADS = os.path.join(BASE_DIR, "temp_uploads")
+ENV_PATH = os.path.join(BASE_DIR, ".env")
+
+load_dotenv(ENV_PATH, override=True)
 app = FastAPI()
 
-
 def resource_path(relative_path):
-    """Compatibile con PyInstaller"""
     try:
         base_path = sys._MEIPASS
     except Exception:
-        base_path = os.path.abspath(".")
+        base_path = BASE_DIR
     return os.path.join(base_path, relative_path)
 
-
 web_folder = resource_path("web")
-os.makedirs(web_folder, exist_ok=True)
-os.makedirs("output", exist_ok=True)
-os.makedirs("temp_uploads", exist_ok=True)
+os.makedirs(OUTPUT_ROOT, exist_ok=True)
+os.makedirs(TEMP_UPLOADS, exist_ok=True)
 
 app.mount("/static", StaticFiles(directory=web_folder), name="static")
 
@@ -74,11 +85,11 @@ async def index():
 @app.get("/outputs")
 async def list_outputs():
     files = []
-    for root, _, filenames in os.walk("output"):
+    for root, _, filenames in os.walk(OUTPUT_ROOT):
         for f in filenames:
             if f.endswith(".pdf"):
                 full = os.path.join(root, f)
-                rel = os.path.relpath(full, "output").replace("\\", "/")
+                rel = os.path.relpath(full, OUTPUT_ROOT).replace("\\", "/")
                 files.append({
                     "filename": f,
                     "path": rel,
@@ -90,7 +101,7 @@ async def list_outputs():
 # View PDF (open in browser)
 @app.get("/view/{folder}/{filename}")
 async def view_pdf(folder: str, filename: str):
-    path = os.path.join("output", folder, filename)
+    path = os.path.join(OUTPUT_ROOT, folder, filename)
     if os.path.exists(path):
         return FileResponse(path, media_type="application/pdf", content_disposition_type="inline")
     return JSONResponse(status_code=404, content={"message": "Not found"})
@@ -123,7 +134,7 @@ async def key_status():
 @app.post("/api/key")
 async def save_key(req: ApiKeyRequest):
     key = req.api_key.strip()
-    env_path = ".env"
+    env_path = ENV_PATH
     lines = []
 
     if os.path.exists(env_path):
@@ -198,7 +209,7 @@ async def save_threads(cfg: ThreadConfig):
 # Upload file
 @app.post("/upload")
 async def upload(file: UploadFile = File(...)):
-    path = os.path.join("temp_uploads", file.filename)
+    path = os.path.join(TEMP_UPLOADS, file.filename)
     with open(path, "wb") as f:
         shutil.copyfileobj(file.file, f)
     return {"filename": file.filename}
@@ -229,26 +240,15 @@ async def process_ws(ws: WebSocket):
             await ws.send_text("❌ API key missing")
             return
 
-        # If a video was provided, extract audio from it first
+        # Determine the source file (audio or video)
         if video:
-            video_path = os.path.join("temp_uploads", video)
-            await ws.send_text(f"🎬 Extracting audio from video: {video}...")
-
-            import AudioTTo as _at
-            loop = asyncio.get_running_loop()
-            try:
-                extracted_audio_path = await asyncio.to_thread(_at.extract_audio_from_video, video_path)
-                audio_path = extracted_audio_path
-                await ws.send_text(f"✅ Audio extracted: {os.path.basename(audio_path)}")
-            except Exception as e:
-                await ws.send_text(f"❌ Video extraction failed: {e}")
-                return
+            audio_path = os.path.join(TEMP_UPLOADS, video)
         else:
-            audio_path = os.path.join("temp_uploads", audio)
+            audio_path = os.path.join(TEMP_UPLOADS, audio)
 
         args = [audio_path]
         if slides:
-            args += ["--slides", os.path.join("temp_uploads", slides)]
+            args += ["--slides", os.path.join(TEMP_UPLOADS, slides)]
         if pages:
             args += ["--pages", pages]
         if threads:
@@ -319,10 +319,14 @@ def start_server():
 # ------------------------------------------------------------
 # MAIN
 # ------------------------------------------------------------
+# ------------------------------------------------------------
+# MAIN
+# ------------------------------------------------------------
 if __name__ == "__main__":
     multiprocessing.freeze_support()
 
     # 🔧 FIX PYTHONNET (WINDOWS + PYINSTALLER)
+    # Keeping this for potential future needs, though pywebview is gone
     if sys.platform == "win32" and getattr(sys, "frozen", False):
         base = sys._MEIPASS
         for f in os.listdir(base):
@@ -330,32 +334,17 @@ if __name__ == "__main__":
                 os.environ["PYTHONNET_PYDLL"] = os.path.join(base, f)
                 break
 
-    server = threading.Thread(target=start_server, daemon=True)
-    server.start()
-
-    try:
-        import webview
-        webview.create_window(
-            "AudioTTo - Notes Generator",
-            "http://127.0.0.1:8000",
-            width=1000,
-            height=800,
-            resizable=True
-        )
-        webview.start()
-
-    except Exception as e:
-        safe_print("\n⚠️ GUI not available, opening browser")
-        safe_print(str(e))
+    # Open browser automatically after a short delay
+    def open_browser():
+        time.sleep(1.5)
         webbrowser.open("http://127.0.0.1:8000")
 
-        try:
-            while True:
-                import time
-                time.sleep(1)
-        except KeyboardInterrupt:
-            pass
+    threading.Thread(target=open_browser, daemon=True).start()
 
+    try:
+        start_server()
+    except KeyboardInterrupt:
+        pass
     finally:
         if os.path.exists("temp_uploads"):
             try:

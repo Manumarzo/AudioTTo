@@ -5,26 +5,13 @@ import os
 
 block_cipher = None
 
-# ---------- OS DETECTION ----------
-if sys.platform == 'win32':
-    ffmpeg_bin = 'ffmpeg.exe'
-    ffprobe_bin = 'ffprobe.exe'
-else:
-    ffmpeg_bin = 'ffmpeg'
-    ffprobe_bin = 'ffprobe'
-
-bin_path = 'bin'
-
 # ---------- DATA ----------
 datas = [
     ('web', 'web'),
     ('logo', 'logo'),
 ]
 
-binaries = [
-    (os.path.join(bin_path, ffmpeg_bin), '.'),
-    (os.path.join(bin_path, ffprobe_bin), '.'),
-]
+binaries = []
 
 # ---------- HIDDEN IMPORTS ----------
 hiddenimports = [
@@ -47,20 +34,14 @@ hiddenimports = [
     'python_multipart',
     'dotenv',
     'fitz',
-    'webview',
-
-    # Windows
-    'clr_loader',
-    'pythonnet',
-    'System',
-    'System.Windows.Forms',
 
     # AI / Audio
     'faster_whisper',
+    'av',
 ]
 
 # ---------- COLLECT PACKAGES ----------
-for pkg in ['faster_whisper', 'pythonnet', 'clr_loader', 'pywebview', 'av']:
+for pkg in ['faster_whisper', 'av']:
     tmp = collect_all(pkg)
     datas += tmp[0]
     binaries += tmp[1]

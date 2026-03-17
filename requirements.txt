@@ -1,4 +1,4 @@
-pydub
+av
 faster-whisper
 google-genai
 setuptools
@@ -9,7 +9,6 @@ uvicorn
 python-multipart
 pydantic
 tqdm
-pywebview
 requests
 packaging
 filelock

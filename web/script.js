@@ -327,25 +327,66 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setupDragDrop(audioDropZone, audioInput, 'audio', (file) => {
         audioFile = file;
-        document.getElementById('audio-file-info').textContent = `Selected file: ${file.name}`;
+        const info = document.getElementById('audio-file-info');
+        info.innerHTML = `Selected: ${file.name} <span class="remove-file" id="remove-audio">&times;</span>`;
+        document.getElementById('remove-audio').onclick = (e) => {
+            e.stopPropagation();
+            audioFile = null;
+            audioInput.value = '';
+            info.innerHTML = '';
+            checkStartReady();
+        };
         checkStartReady();
     });
 
     setupDragDrop(videoDropZone, videoInput, 'video', (file) => {
         videoFile = file;
-        document.getElementById('video-file-info').textContent = `Selected file: ${file.name}`;
+        const info = document.getElementById('video-file-info');
+        info.innerHTML = `Selected: ${file.name} <span class="remove-file" id="remove-video">&times;</span>`;
+        document.getElementById('remove-video').onclick = (e) => {
+            e.stopPropagation();
+            videoFile = null;
+            videoInput.value = '';
+            info.innerHTML = '';
+            checkStartReady();
+        };
         checkStartReady();
     });
 
     setupDragDrop(pdfDropZone, pdfInput, 'pdf', (file) => {
         pdfFile = file;
-        document.getElementById('pdf-file-info').textContent = `Selected file: ${file.name}`;
+        const info = document.getElementById('pdf-file-info');
+        info.innerHTML = `Selected: ${file.name} <span class="remove-file" id="remove-pdf">&times;</span>`;
+        
+        document.getElementById('remove-pdf').onclick = (e) => {
+            e.stopPropagation();
+            pdfFile = null;
+            pdfInput.value = '';
+            info.innerHTML = '';
+            pagesInput.value = '';
+            pagesInput.disabled = true;
+            pagesInput.placeholder = "All";
+        };
+
         pagesInput.disabled = false;
         pagesInput.placeholder = "e.g., 1-5 (Optional)";
     });
 
     function checkStartReady() {
         startBtn.disabled = !(audioFile || videoFile);
+        
+        // Mutue exclusion logic: disable the other zone if one is filled
+        if (audioFile) {
+            videoDropZone.classList.add('disabled');
+        } else {
+            videoDropZone.classList.remove('disabled');
+        }
+
+        if (videoFile) {
+            audioDropZone.classList.add('disabled');
+        } else {
+            audioDropZone.classList.remove('disabled');
+        }
     }
 
     // --- Upload & Process Logic ---

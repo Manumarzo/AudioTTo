@@ -1,8 +1,9 @@
-name: Build AudioTTo
+name: Build AudioTTo Multi-Platform
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main", "master" ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -10,62 +11,43 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     strategy:
+      fail-fast: false
       matrix:
-        os: 
-          - ubuntu-latest
-          - windows-latest
-          - macos-latest
+        include:
+          - os: ubuntu-latest
+            artifact_name: AudioTTo_Linux
+
+          - os: macos-latest
+            artifact_name: AudioTTo_MacOS
+
+          - os: windows-latest
+            artifact_name: AudioTTo_Windows
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout Code
+      uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.11' 
+    # ---------- PYTHON ----------
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
 
-      - name: Install dependencies and pyinstaller
-        shell: bash -l {0}
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyinstaller
+    - name: Install Python Dependencies
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Download FFmpeg (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt update
-          sudo apt install -y ffmpeg
-          mkdir -p bin
-          cp /usr/bin/ffmpeg bin/ffmpeg
-          cp /usr/bin/ffprobe bin/ffprobe
+    # ---------- BUILD ----------
+    - name: Build with PyInstaller
+      run: pyinstaller build.spec
 
-      - name: Download FFmpeg (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          mkdir bin
-          choco install ffmpeg -y
-          copy "C:\ProgramData\chocolatey\lib\ffmpeg\tools\ffmpeg\bin\ffmpeg.exe" bin\
-          copy "C:\ProgramData\chocolatey\lib\ffmpeg\tools\ffmpeg\bin\ffprobe.exe" bin\
-
-      - name: Download FFmpeg (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install ffmpeg
-          mkdir -p bin
-          cp "$(brew --prefix)/bin/ffmpeg" bin/ffmpeg
-          cp "$(brew --prefix)/bin/ffprobe" bin/ffprobe
-          chmod +x bin/ffmpeg bin/ffprobe
-
-      - name: Build with PyInstaller
-        shell: bash -l {0}
-        run: pyinstaller build.spec
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: AudioTTo-${{ runner.os }}
-          path: |
-            dist/
-            !dist/*.app
+    # ---------- UPLOAD ----------
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.artifact_name }}
+        path: dist/AudioTTo
