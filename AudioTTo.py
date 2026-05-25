@@ -536,6 +536,60 @@ Output ONLY the corrected LaTeX snippet. Do not include markdown code blocks (e.
         return latex_code
 
 
+CORE_ACADEMIC_INSTRUCTIONS = """
+ADDITIONAL MANDATORY FORMATTING, STYLE & CONTENT RULES (Balanced Academic Style):
+1. **Academic Writing Style (Fluid but Dense)**: Formulate detailed explanations of concepts following an academic, clear, and structured editorial style. Complex concepts must be explained in a complete, linear, and accessible manner, using well-written narrative paragraphs to delve into theories and logical passages. Avoid verbal fillers, conversational preambles, fluff, and repetitions typical of spoken speech.
+2. **Usage of Lists**: The body text should remain fluid and academic. However, you should use bulleted or numbered lists (such as LaTeX `itemize` or `enumerate`) whenever it helps to clarify classifications, characteristics, step-by-step processes, or structured details, ensuring a clean and legible study layout.
+3. **Visual Anchor**: Use bold formatting (`\\textbf{...}`) to highlight key terms and fundamental concepts within the paragraphs to facilitate quick reading and effective studying.
+4. **Visual Concepts Integration**: If the audio/slides describe a graph, diagram, schema, or physical/structural system (e.g., double helix, neural network layers, curves), **NEVER try to draw them visually using characters, dashes, or ASCII art**. Instead, integrate their description smoothly into the flow of the text, or isolate them in a standard LaTeX subheading/paragraph (e.g., `\\subsection{Approfondimento Concettuale: ...}` or `\\subsubsection{Approfondimento Concettuale: ...}`), describing their theoretical, architectural, or mathematical meaning in a clean manner.
+5. **Fidelity to Audio**: Maintain strict and total adherence to the transcription content. Do not invent details or introduce topics, algorithms, or concepts that were not mentioned by the speaker.
+"""
+
+
+def generate_final_summary(client, model: str, full_body_text: str, audio_lang: str) -> str:
+    """
+    Generates a final summary section based EXCLUSIVELY on the generated body text.
+    """
+    log("🧠 Generating final summary from compiled body chapters...")
+    prompt = f"""
+You are an expert academic professor.
+Your task is to write a highly structured, concise final summary section titled exactly `\\section{{Riepilogo}}`.
+
+Here is the complete compiled body of the lecture notes:
+---
+{full_body_text}
+---
+
+CRITICAL SUMMARY RULES:
+1. **Title**: The section must start strictly with the title: `\\section{{Riepilogo}}`.
+2. **Bold Visual Anchors**: Where appropriate or necessary, use LaTeX bold formatting (`\\textbf{{...}}`) to highlight key terms, fundamental words, or core concepts in the text to make the summary highly legible and easy to skim.
+3. **Fewer Bullet Points**: The summary must be written primarily in a concise, fluid narrative format (1 or 2 short paragraphs summarizing the core message, key results, and main takeaways of the lecture). Explain the concepts in a slightly simpler, clearer, and more accessible/straightforward manner compared to the dense academic body text. Avoid overly dense prose while keeping the content scientifically accurate. Limit bullet points (using `\\begin{{itemize}}`) to a maximum of 2 or 3 high-impact, critical items.
+4. **Length Control**:
+   - The summary must be extremely concise, occupying at most 10-15% of the total document length.
+   - Any bullet points used must be short (max 2 lines each).
+5. **Consistency & Semantic Alignment**:
+   - The summary must ONLY contain concepts, terms, and algorithms that have already been fully explained and detailed in the body text above.
+   - It is strictly FORBIDDEN to introduce any new key terms, algorithms, or concepts that were omitted or not explained in the preceding body text.
+6. **Language & Output**:
+   - The summary must be written in the same language as the notes (detected language: {audio_lang}).
+   - Do NOT output any LaTeX preamble or document environment (like `\\begin{{document}}`). Output ONLY the `\\section{{Riepilogo}}` section and its content.
+"""
+    config = types.GenerateContentConfig(
+        safety_settings=[
+            types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_NONE"),
+            types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE"),
+            types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_NONE"),
+            types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
+        ]
+    )
+    
+    summary_latex = generate_content_with_retry(client, model, prompt, config)
+    if summary_latex:
+        return review_latex_chunk(summary_latex.strip(), audio_lang)
+    return ""
+
+
+
 def generate_latex_document(text: str, title: str, slides_path: str, audio_lang: str) -> str:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -586,6 +640,7 @@ IMPORTANT RULES:
 - Start directly with the first section (e.g. `\\section{{...}}`).
 - Use clear formatting, bullet points, and math equations (using amsmath) where appropriate.
 - Write the entire content in the same language as the transcription. The detected language is: {audio_lang}.
+{CORE_ACADEMIC_INSTRUCTIONS}
 
 TRANSCRIPTION OF PART 1:
 {chunk}
@@ -607,12 +662,8 @@ IMPORTANT RULES:
 - Do not repeat sections from the previous part; continue the explanation smoothly.
 - Use clear formatting, bullet points, and math equations where appropriate.
 - Write the entire content in the same language as the transcription. The detected language is: {audio_lang}.
-"""
-            if is_last:
-                prompt += """
-- This is the FINAL PART of the lecture. After writing the notes for this part, add a final summary section summarizing the entire lecture (e.g. `\\section{Summary}`).
-"""
-            prompt += f"""
+{CORE_ACADEMIC_INSTRUCTIONS}
+
 TRANSCRIPTION OF PART {i+1}:
 {chunk}
 """
@@ -657,6 +708,20 @@ TRANSCRIPTION OF PART {i+1}:
             
     if not compiled_body:
         return ""
+
+    # Generate final summary based exclusively on the compiled body content
+    full_body_text = "\n\n".join(compiled_body)
+    summary_latex = generate_final_summary(client, model_gen, full_body_text, audio_lang)
+    if summary_latex:
+        # Clean up potential markdown formatting in the summary
+        if summary_latex.startswith("```"):
+            lines = summary_latex.splitlines()
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].startswith("```"):
+                lines = lines[:-1]
+            summary_latex = "\n".join(lines).strip()
+        compiled_body.append(summary_latex)
         
     clean_title = title.replace('_', ' ')
     full_latex = f"""\\documentclass[12pt]{{article}}
