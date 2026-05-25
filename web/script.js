@@ -40,9 +40,85 @@ document.addEventListener('DOMContentLoaded', () => {
     let isProcessing = false;
 
     // --- Modal Logic ---
+    const modelGenSelect = document.getElementById('model-generation-select');
+    const modelRevSelect = document.getElementById('model-revision-select');
+
+    const FALLBACK_MODELS = [
+        { name: 'gemini-2.5-flash', display_name: 'gemini-2.5-flash (Default)' },
+        { name: 'gemini-2.5-pro', display_name: 'gemini-2.5-pro' },
+        { name: 'gemini-1.5-flash', display_name: 'gemini-1.5-flash' },
+        { name: 'gemini-1.5-pro', display_name: 'gemini-1.5-pro' },
+        { name: 'gemini-3.1-flash-lite-preview', display_name: 'gemini-3.1-flash-lite-preview' }
+    ];
+
+    function populateModelSelects(models, selectedGen, selectedRev) {
+        modelGenSelect.innerHTML = '';
+        modelRevSelect.innerHTML = '';
+
+        models.forEach(model => {
+            const optGen = document.createElement('option');
+            optGen.value = model.name;
+            optGen.textContent = model.display_name;
+            if (model.name === selectedGen) {
+                optGen.selected = true;
+            }
+            modelGenSelect.appendChild(optGen);
+
+            const optRev = document.createElement('option');
+            optRev.value = model.name;
+            optRev.textContent = model.display_name;
+            if (model.name === selectedRev) {
+                optRev.selected = true;
+            }
+            modelRevSelect.appendChild(optRev);
+        });
+    }
+
+    async function loadSettingsAndModels() {
+        let savedGen = 'gemini-2.5-flash';
+        let savedRev = 'gemini-2.5-flash';
+        
+        try {
+            const infoRes = await fetch('/api/info');
+            if (infoRes.ok) {
+                const info = await infoRes.json();
+                savedGen = info.model_generation || 'gemini-2.5-flash';
+                savedRev = info.model_revision || 'gemini-2.5-flash';
+            }
+        } catch (e) {
+            console.error("Failed to load info", e);
+        }
+
+        let modelsList = [...FALLBACK_MODELS];
+        try {
+            const modelsRes = await fetch('/api/models');
+            if (modelsRes.ok) {
+                const data = await modelsRes.json();
+                if (data.models && data.models.length > 0) {
+                    modelsList = data.models;
+                }
+            }
+        } catch (e) {
+            console.error("Failed to fetch models from API, using fallbacks", e);
+        }
+
+        const hasGen = modelsList.some(m => m.name === savedGen);
+        if (!hasGen) {
+            modelsList.unshift({ name: savedGen, display_name: savedGen });
+        }
+        const hasRev = modelsList.some(m => m.name === savedRev);
+        if (!hasRev) {
+            modelsList.unshift({ name: savedRev, display_name: savedRev });
+        }
+
+        populateModelSelects(modelsList, savedGen, savedRev);
+    }
+
+    // --- Modal Logic ---
     function openModal() {
         settingsModal.classList.remove('hidden');
         checkKeyStatus();
+        loadSettingsAndModels();
     }
 
     function closeModal() {
@@ -121,7 +197,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     saveKeyBtn.addEventListener('click', async () => {
         const key = apiKeyInput.value.trim();
-        if (!key) {
+        const keyData = await getKeyStatus();
+
+        if (!key && !keyData.is_set) {
             showToast("Please enter an API Key.", 'error');
             return;
         }
@@ -130,30 +208,52 @@ document.addEventListener('DOMContentLoaded', () => {
         saveKeyBtn.textContent = 'Saving...';
 
         try {
-            const res = await fetch('/api/key', {
+            if (key) {
+                const res = await fetch('/api/key', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ api_key: key })
+                });
+
+                if (res.ok) {
+                    showToast("API Key saved successfully!", 'success');
+                    apiKeyInput.value = '';
+                    if (typeof updateToggleVisibility === 'function') {
+                        updateToggleVisibility();
+                    } else {
+                        const toggleKeyBtn = document.getElementById('toggle-key-visibility');
+                        if (toggleKeyBtn) toggleKeyBtn.classList.remove('visible');
+                    }
+                    await checkKeyStatus();
+                } else {
+                    showToast("Error saving API Key.", 'error');
+                    saveKeyBtn.disabled = false;
+                    saveKeyBtn.textContent = 'Save';
+                    return;
+                }
+            }
+
+            const genModel = modelGenSelect.value;
+            const revModel = modelRevSelect.value;
+            
+            const modelsRes = await fetch('/api/save-models', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ api_key: key })
+                body: JSON.stringify({
+                    model_generation: genModel,
+                    model_revision: revModel
+                })
             });
 
-            if (res.ok) {
-                showToast("API Key saved successfully!", 'success');
-                apiKeyInput.value = '';
-                if (typeof updateToggleVisibility === 'function') {
-                    updateToggleVisibility();
-                } else {
-                    const toggleKeyBtn = document.getElementById('toggle-key-visibility');
-                    if (toggleKeyBtn) toggleKeyBtn.classList.remove('visible');
-                }
-
-                checkKeyStatus();
+            if (modelsRes.ok) {
+                showToast("Settings saved successfully!", 'success');
                 closeModal();
             } else {
-                showToast("Error saving API Key.", 'error');
+                showToast("Error saving models configuration.", 'error');
             }
         } catch (err) {
-            console.error("Error saving key:", err);
-            showToast("Error saving API Key.", 'error');
+            console.error("Error saving settings:", err);
+            showToast("Error saving settings.", 'error');
         } finally {
             saveKeyBtn.disabled = false;
             saveKeyBtn.textContent = 'Save';
@@ -373,6 +473,30 @@ document.addEventListener('DOMContentLoaded', () => {
         pagesInput.placeholder = "e.g., 1-5 (Optional)";
     });
 
+    let progressInterval = null;
+
+    function updateStatus(text, color, animate = false) {
+        if (progressInterval) {
+            clearInterval(progressInterval);
+            progressInterval = null;
+        }
+        
+        statusIndicator.style.color = color;
+        
+        if (animate) {
+            let count = 0;
+            const baseText = text.replace(/\.+$/, '');
+            statusIndicator.textContent = baseText + '.';
+            progressInterval = setInterval(() => {
+                count = (count + 1) % 3;
+                const dots = '.'.repeat(count + 1);
+                statusIndicator.textContent = baseText + dots;
+            }, 500);
+        } else {
+            statusIndicator.textContent = text;
+        }
+    }
+
     function checkStartReady() {
         if (isProcessing) {
             startBtn.disabled = true;
@@ -412,6 +536,12 @@ document.addEventListener('DOMContentLoaded', () => {
             pdfDropZone.classList.remove('disabled');
             if (pdfFile) pagesInput.disabled = false;
             checkStartReady();
+
+            // Clean progress animation interval if active
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
         }
     }
 
@@ -429,8 +559,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         startBtn.disabled = true;
         setProcessingState(true);
-        statusIndicator.textContent = 'Uploading file...';
-        statusIndicator.style.color = '#fbbf24'; // Yellow
+        updateStatus('Uploading file', '#fbbf24', true);
         log("Starting file upload...");
 
         try {
@@ -476,8 +605,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             log(`❌ Errore: ${err.message}`);
             startBtn.disabled = false;
-            statusIndicator.textContent = 'Error';
-            statusIndicator.style.color = '#ef4444';
+            updateStatus('Error', '#ef4444', false);
         }
     });
 
@@ -486,8 +614,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ws = new WebSocket(`${protocol}//${window.location.host}/ws/process`);
 
         ws.onopen = () => {
-            statusIndicator.textContent = 'Elaboration in progress...';
-            statusIndicator.style.color = '#3b82f6'; // Blue
+            updateStatus('Elaboration in progress', '#f59e0b', true);
 
             // Send config to start
             ws.send(JSON.stringify({
@@ -503,8 +630,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const msg = event.data;
             if (msg === 'REFRESH_OUTPUTS') {
                 loadOutputs();
-                statusIndicator.textContent = 'Completed';
-                statusIndicator.style.color = '#10b981'; // Green
+                updateStatus('Completed', '#10b981', false);
 
                 // Reset inputs FIRST
                 audioFile = null;
@@ -543,9 +669,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function log(message) {
         const terminalWindow = document.getElementById('terminal-window');
+        let cleanMessage = message.replace(/^\r+/, '').trim();
+        if (!cleanMessage) return;
+
+        if (cleanMessage.includes("Transcribing")) {
+            let pbarLine = null;
+            const lines = terminalWindow.getElementsByClassName('log-line');
+            for (let i = lines.length - 1; i >= 0; i--) {
+                if (lines[i].textContent.includes("Transcribing")) {
+                    pbarLine = lines[i];
+                    break;
+                }
+            }
+            if (pbarLine) {
+                pbarLine.textContent = `> ${cleanMessage}`;
+                return;
+            }
+        }
 
         if (message.startsWith('\r')) {
-            const cleanMessage = message.replace(/^\r+/, '');
             const lastLine = terminalWindow.lastElementChild;
             if (lastLine) {
                 lastLine.textContent = `> ${cleanMessage}`;
@@ -558,7 +700,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             const div = document.createElement('div');
             div.className = 'log-line';
-            div.textContent = `> ${message}`;
+            div.textContent = `> ${cleanMessage}`;
             terminalWindow.appendChild(div);
         }
         terminalWindow.scrollTop = terminalWindow.scrollHeight;
